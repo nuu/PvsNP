@@ -1,5 +1,6 @@
 # MAG: Formalizing P ≠ NP via Group-Theoretic Semantics
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18365913.svg)](https://doi.org/10.5281/zenodo.18365913)
+
 A Lean 4 formalization of the **Minimum Asymmetry Gap (MAG)** framework, which translates P vs NP into group theory.
 
 ## Overview
