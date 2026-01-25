@@ -1,0 +1,14 @@
+# blueprint.toml - leanblueprint configuration
+# Place in: project_root/blueprint/blueprint.toml
+
+[project]
+name = "MAG P≠NP"
+home = "https://github.com/nuu/MAG-PneqNP"
+github = "https://github.com/nuu/MAG-PneqNP"
+dochome = "https://nuu.github.io/MAG-PneqNP/docs"
+
+[src]
+# Lean library name (must match lakefile.lean)
+lean = "MAG"
+# Blueprint source directory (relative to blueprint/)
+dir = "src"

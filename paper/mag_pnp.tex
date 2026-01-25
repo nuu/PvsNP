@@ -1,0 +1,1015 @@
+\documentclass[11pt,a4paper]{article}
+
+%% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+%% Theorem environments
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{construction}[theorem]{Construction}
+
+%% Custom commands
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\MAG}{\mathrm{MAG}}
+\newcommand{\Aalt}{A_5}
+\newcommand{\Sfive}{S_5}
+\newcommand{\Solves}{\mathrm{Solves}}
+\newcommand{\IsSolvable}{\mathrm{IsSolvable}}
+\newcommand{\isPolyTime}{\mathrm{isPolyTime}}
+\newcommand{\isNPHard}{\mathrm{isNPHard}}
+\newcommand{\TranslationInterface}{\texttt{TranslationInterface}}
+\newcommand{\ComputationalModel}{\texttt{ComputationalModel}}
+\newcommand{\lean}[1]{\texttt{#1}}
+\newcommand{\Zp}{\mathbb{Z}_p}
+
+%% Listings for Lean
+\lstdefinelanguage{Lean}{
+  keywords={theorem, lemma, def, class, instance, structure, where, import, namespace, end, sorry, axiom, Prop, Type},
+  sensitive=true,
+  morecomment=[l]{--},
+  morecomment=[s]{/-}{-/},
+  morestring=[b]",
+}
+\lstset{
+  language=Lean,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+  breaklines=true,
+  frame=single,
+  xleftmargin=1em,
+}
+
+%% Title
+\title{MAG: Formalizing the Solvability Barrier in P vs NP\\
+via Group-Theoretic Semantics}
+\author{Masaru Numagaki\\
+\textit{Independent Researcher, Kumamoto, Japan}}
+\date{January 2026}
+
+\begin{document}
+
+\maketitle
+
+%% ============================================================================
+%% Classification
+%% ============================================================================
+\noindent\textbf{ACM CCS (2012):}
+Theory of computation $\rightarrow$ Complexity classes; Algebraic complexity theory; Automated reasoning.
+Software and its engineering $\rightarrow$ Formal methods.
+
+\noindent\textbf{MSC2020:} 68Q15, 68V15, 20F16, 20D06
+
+\noindent\textbf{Keywords:} P vs NP, computational complexity, alternating group $A_5$, 
+group-theoretic semantics, solvable groups, formal verification, Lean 4, 
+Krohn–Rhodes decomposition, Barrington’s theorem, CFSG (Classification of Finite Simple Groups)
+
+\vspace{1em}
+
+% ============================================================
+% Table of Contents
+% ============================================================
+\tableofcontents
+\newpage
+%% ============================================================================
+%% ABSTRACT
+%% ============================================================================
+\begin{abstract}
+This paper separates P vs.\ NP from the fixed vocabulary of ``resource measures on the standard model of computation'' and introduces MAG (Minimum Asymmetry Gap) as a framework for clarifying the semantics of computation. MAG defines (i)~polytime as the solvability of a group, (ii)~NP-hard as an injective embedding of the minimal unsolvable kernel~$\Aalt$, and (iii)~solves as a group isomorphism. Within this formalized semantic framework, we demonstrate that the separation $\mathrm{P} \neq \mathrm{NP}$ arises structurally as a consequence of Galois theory.
+ We then rigorously extract the necessary conditions for this separation to hold in the standard model as the \TranslationInterface{} type class.
+
+Furthermore, for any computational model~$M$, we type-classify the assumption that maps standard vocabulary to MAG semantics as \TranslationInterface{}, and show that if this holds, separation is transferred on~$M$ (conditional, full formalism). In addition, we construct a toy model (BarringtonToy) that satisfies \TranslationInterface{} and show that it is machine-verifiable from end to end.
+
+This paper does not claim to have definitively solved the Clay problem under the standard TM/circuit definition. Instead, we present a strict separation in Lean between the formalized kernel and the boundary of the translation assumptions necessary to connect to the standard model.
+\end{abstract}
+
+%% ============================================================================
+%% SECTION 1: INTRODUCTION
+%% ============================================================================
+\section{Introduction}
+
+\subsection{Background: P vs NP Normalization to ``Galois Form''}
+
+P vs NP has been formulated as a central problem in computational complexity, but this question implicitly includes the assumption that ``the body of computation can be exhausted by standard models (Turing machines/circuits).'' This paper reexamines this assumption. More precisely, just as the classic question of ``Can a general quintic equation be solved using radicals?'' was normalized by Galois theory into the structural question of ``Is it a solvable group?'', we clarify ``in what description system (computational semantics) should we consider something to be `solvable'?'' in P vs NP, and then formalize the point at which the separation is enforced.
+
+
+\paragraph{Methodological Foundation: Klein's Erlangen Program.}
+The approach of translating diverse mathematical objects into the common language of \emph{groups} has a distinguished 150-year history. While Galois (1832) discovered that the solvability of polynomial equations corresponds to group solvability, it was \textbf{Felix Klein's Erlangen Program (1872)}~\cite{klein1872} that elevated this translation into a \emph{general methodology}. Klein proposed that geometry should be understood as the study of invariants under transformation groups---effectively ``translating'' geometric spaces into group-theoretic objects for classification.
+
+MAG can be understood as the \textbf{computational analogue of the Erlangen Program}: just as Klein classified geometries by their symmetry groups, MAG classifies computational problems by their symmetry groups and algorithms by their operation groups. The Krohn--Rhodes decomposition theorem (1965) provided the technical bridge by showing that finite automata decompose into group components, and Barrington's theorem (1986) revealed that the non-solvable group $\Aalt$ plays a critical computational role. MAG synthesizes these threads into a unified framework for P vs NP.
+
+
+From this perspective, this paper introduces a model called MAG (Minimum Asymmetry Gap) that translates computation into group-theoretic objects. In MAG, ``efficiency (polytime)'' is not a commutative resource measure, but rather the solvability of a group. The core of NP-hardness is $\Aalt$ as the smallest unsolvable kernel. The central argument of this paper is that the moment we adopt this semantics, we are freed from the disconnection between solvability and unsolvability---\textbf{separation ($\mathrm{P} \neq \mathrm{NP}$) is enforced as a theorem}.
+
+
+\subsubsection{Why $A_5$? The Classification of Finite Simple Groups}
+
+The choice of $A_5$ as the kernel of NP-hardness is not arbitrary but mathematically 
+determined. The Classification of Finite Simple Groups (CFSG), one of the greatest 
+achievements of 20th-century mathematics, establishes that all finite simple groups 
+fall into exactly four families: cyclic groups of prime order, alternating groups 
+$A_n$ ($n \ge 5$), groups of Lie type, and 26 sporadic groups.
+
+Among these, only cyclic groups $\mathbb{Z}_p$ are solvable. The Feit--Thompson 
+Theorem (1963) further establishes that \emph{all groups of odd order are solvable}, 
+meaning non-solvability can only arise in groups of even order. The smallest 
+non-solvable simple group is precisely $A_5$, with order 60.
+
+This classification provides the ``ground truth'' for our framework: $A_5$ is not 
+merely an example but the \textbf{mathematically minimal point} at which 
+non-solvability manifests.
+
+\subsection{Contributions}
+
+The contributions of this paper are as follows. All results do not depend on any \lean{sorry} statements or additional axioms.
+
+\paragraph{(A) Separation theorem in MAG (unconditional and complete formalism).}
+We introduce the MAG semantics as a definition in the language of group theory:
+\begin{itemize}[nosep]
+\item MAG-polytime (algorithm side) = The algorithm group is solvable
+\item MAG-NP-hard (problem side) = The problem set is unsolvable ($\neg \IsSolvable(G(p))$)
+\item MAG-solves = the two correspond by group isomorphism
+\end{itemize}
+
+Under this definition, due to the insolvability of $\Aalt$ and the fact that ``group isomorphism preserves solvability'', \textbf{P=NP in MAG is false} ($\mathrm{P} \neq \mathrm{NP}$ in MAG).
+
+\paragraph{(B) Bridging theorem assuming a translation interface (conditional and complete formalism).}
+Abstract classes with standard vocabulary (polytime / NP-hard / solves) for any computational model~$M$ are defined as \ComputationalModel{}, and further show that it can be mapped to the MAG semantics via \TranslationInterface{}. \TranslationInterface{} conceptually requires that:
+\begin{enumerate}[nosep]
+\item polytime $\Rightarrow$ falls into a solvable group
+\item NP-hard $\Rightarrow$ injective embedding of the $\Aalt$ kernel (which leads to unsolvability)
+\item solves $\Rightarrow$ gives group isomorphism correspondence
+\end{enumerate}
+Under this assumption, we transfer the intra-MAG separation~(A) to the general model: \textbf{if \TranslationInterface{}~$M$ holds, then $\mathrm{P} \neq \mathrm{NP}$ on~$M$} follows.
+
+\paragraph{(C) End-to-end verification of toy models (unconditional and fully formalized).}
+To show that bridging is not just empty theory, we construct a toy computation model (BarringtonToy) that satisfies \TranslationInterface{}, and then use an embedding of type $\Aalt \hookrightarrow \Sfive$ to construct a witness. We use Lean to confirm that $\neg(\mathrm{P}=\mathrm{NP})$ is derived.
+
+\paragraph{(D) Barrington-type depth-consistent solvability barrier (unconditional and complete formalism).}
+In Barrington's width-5 branching program, the computational syntax is expressed as a commutator composition. In this paper, to avoid the trivialization caused by the self-commutator $[x,x]=1$, we define a balanced commutator tree of depth~$n$ as the syntax and show that the evaluation value of depth~$n$ always falls into $\mathrm{derivedSeries}(G,n)$. As a result, if a group is solvable, then there exists a finite depth~$k$ such that a commutator tree of depth $n \geq k$ collapses to the identity under arbitrary substitution (vanishing depth). In contrast, $\Aalt$ does not have finite vanishing depth in this sense.
+
+\subsection{Remark on the Numerical Gap $\Delta D = 7/6$}
+
+Although a numerical gap of $\Delta D = 7/6$ appears in this project, this is not a premise of the separation theorem in this paper. The discontinuity between solvable and unsolvable kernels is the central argument of this paper, and the numerical gap is briefly derived in Section~2.5 as a numerical example to aid in the intuition of ``irreversibility by projection.''
+
+\subsection{Scope of Claims and Non-claims}
+
+To avoid any misunderstanding, we will clarify the scope of this paper.
+\begin{itemize}[nosep]
+\item This paper \textbf{unconditionally asserts} a separation within the computational semantics defined as MAG ($\mathrm{P} \neq \mathrm{NP}$).
+\item This paper \textbf{makes a conditional claim}:\\
+for any computational model~$M$, if \TranslationInterface{}~$M$ holds, then separation also follows.
+\item This paper \textbf{does not claim} that the Clay problem under the standard definition of Turing machines and circuits has been resolved unconditionally. The assumptions required for identification with the Standard Model are separated as \TranslationInterface{}, and the formalized core and unformalized translation tasks are separated in~Lean.
+\end{itemize}
+
+\subsection{How to Read Formalization (Lean Artifact)}
+
+The Lean artifacts accompanying this paper are organized so that the main theorem can be seen directly from the entry file. The core (the part that contributes to the assertion) is \lean{sorry}-free, while the blueprint for realizing the translation into the Standard Model is separated as Blueprint and is not included in the Core Claims.
+
+\paragraph{Theorem correspondence table:}
+\begin{center}
+\small
+\begin{tabular}{@{}p{0.22\textwidth}p{0.38\textwidth}p{0.35\textwidth}@{}}
+\toprule
+Paper & Lean File & Lean Name \\
+\midrule
+Theorem 3.1 (MAG separation) & \lean{Core/MAG\_P\_neq\_NP.lean} & \lean{MAG.Core.MAG\_P\_neq\_NP} \\
+Theorem 4.6 (Universal Barrier) & \lean{Core/A5\_Barrier.lean} & \lean{MAG.Core.A5\_Universal\_Barrier} \\
+Theorem 4.7 (Vanishing Depth) & \lean{Core/BarringtonBarrier.lean} & \lean{...solvable\_vanishing\_depth} \\
+Theorem 5.4 (Bridge) & \lean{Core/Bridge/Theorem.lean} & \lean{MAG.Core.Bridge.Bridge\_P\_neq\_NP} \\
+Theorem 5.7 (Toy) & \lean{Core/Bridge/ToyInstantiation.lean} & \lean{...BarringtonToy\_P\_neq\_NP} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{Supplement 1.5.1: Lessons Learned from Formalization}
+
+The Lean formalism makes it clear where things that are vague on paper break down, and where design decisions shift the burden of proof. Key practical lessons learned from this paper:
+
+\begin{enumerate}
+\item \textbf{Injectivity is essential for kernel conditions.} When ``contains'' is used as the kernel condition, the mere existence of $\Aalt \to G(p)$ can make the condition meaningless by a trivial homomorphism, so injective must be explicitly stated when assuming or using the $\Aalt$ kernel. In the Core formalism (\lean{MAG\_P\_neq\_NP.lean}), MAG-NP-hard is defined as ``$G(p)$ is unsolvable,'' and the $\Aalt$ kernel ($\Aalt \to G(p)$ is injective) is treated separately as a sufficient condition and translation principle.
+
+\item \textbf{The strength of solves determines the strength of separation.} Fixing $\Solves(a,p)$ as an isomorphism (\lean{Nonempty (A(a) $\simeq$* G(p))}) allows for mechanical invocation of solvability preservation (Lemma~2.7), whereas relaxing it to the existence of homomorphisms or mappings removes the conservation law and exposes the possibility that separation does not hold. The formalism visualizes the strength with which the semantics of ``solve'' enforces separation.
+
+\item \textbf{Barrington-type augmentation requires syntax avoiding self-commutator trivialization.} Because the naive definition of the commutator for measuring depth can be collapsed identically ($[x,x]=1$), this paper defines a balanced commutator tree as a syntax and shows that evaluation falls to $\mathrm{derivedSeries}(G,n)$ (Barrier section). This design has a safety margin established by formalization.
+
+\item \textbf{Separating ``Core'' from ``Translation Debt (Blueprint)'' fixes scope institutionally.}\\
+The Core (separation, barrier, bridging theorem, and toy verification) can be verified without any \lean{sorry}/additional axioms, and the additional requirements for standard model identification are localized to the \TranslationInterface{} side. This makes it clear in~Lean what is a definitive theorem and what is a future translation issue.
+
+\item \textbf{The shorter the proof, the more transparent the dependencies.} Although the intra-MAG separation is short, the formalism clearly exposes where the unsolvability of $\Aalt$ and solvability preservation by isomorphism are used. In addition, this paper also presents an enhanced version of the argument using the $\Aalt$ kernel (injective embedding), and separates the argument that the load can be shifted to a ``kernel propagation''-type lemma if necessary.
+\end{enumerate}
+
+\subsection{Paper Structure}
+
+\paragraph{Proof outline (Lean compatible):}
+\begin{itemize}[nosep]
+\item Section~2: MAG model definition (\lean{Core/MAG\_P\_neq\_NP.lean}).
+\item Section~3: Main theorem for $\mathrm{P} \neq \mathrm{NP}$ in MAG (\lean{MAG.Core.MAG\_P\_neq\_NP}).
+\item Section~4: Universal barrier + Barrington-type reinforcement (\lean{Core/A5\_Barrier.lean} and \lean{Core/BarringtonBarrier.lean}).
+\item Section~5: Bridge to the Standard Model\\
+ (\lean{Core/Bridge/Theorem.lean} and \lean{Core/Bridge/ToyInstantiation.lean}).
+\item Appendix: Artifact map and reproduction steps (\lean{Main.lean} \texttt{lake build} / \texttt{\#check}).
+\end{itemize}
+
+\paragraph{Section overview:}
+\begin{itemize}[nosep]
+\item Section~2: Presentation of the MAG model (definition lattice)
+\item Section~3: Main theorem for $\mathrm{P} \neq \mathrm{NP}$ in MAG
+\item Section~4: General form of universal barrier with $\Aalt$ as kernel
+\item Section~5: \TranslationInterface{} and bridging theorem, toy verification
+\item Appendix: Formalized reproduction steps and artifact map
+\end{itemize}
+
+\subsection{Anticipated Objections}
+
+\paragraph{A: Isn't that a tautology?}
+Because this paper defines P as a solvable group structure and NP-hardness as the injective appearance of an unsolvable kernel ($\Aalt$), it may seem obvious that solvable and unsolvable groups are not isomorphic. However, this ``obviousness'' is precisely the goal of this paper. The argument of this paper is not simply a paraphrase; it formalizes, together with a translation interface, the algebraic inconsistency that arises when $\mathrm{P} = \mathrm{NP}$, namely, the inflow of an $\Aalt$ unsolvable kernel into the solvable structure, thereby exposing the kernel and responsibility boundary in a machine-verifiable form.
+
+\paragraph{B: Circuits are universal, so why are they limited to being ``solvable''?}
+It is necessary to distinguish between ``the function to be computed (semantics)'' and ``the construction rules of the computational device (syntax).'' While circuits can certainly compute many functions, the ``syntactic transformations'' generated by the basic gates (AND, OR, NOT) of standard Boolean circuits and their composition rules are constrained to structures that are solvable from the perspective of Krohn--Rhodes decomposition. See Section~\ref{sec:krohnrhodes} for a detailed explanation of why this is the case.
+
+\paragraph{C: Isn't this not an unconditional proof for the standard model (TM/circuit)?}
+This paper intentionally separates the core (Core) that is completed within MAG from the translation conditions (Bridge) required to connect to the standard model. The central point is that it formalizes and fixes ``what is the mathematical core that creates the separation?'' and externalizes the algebraic conditions that the standard model must satisfy as a type (specification) called \TranslationInterface{}.
+
+\paragraph{D: Barrington is an NC$^1$ theorem, so isn't extending it to the whole of P a leap?}
+From a symmetry perspective, the presence or absence of a kernel that necessarily appears within a class is more important than the ``breadth'' of the class itself. Polynomial-time reduction to NP-complete problems preserves the problem structure, and the $\Aalt$ kernel of SAT propagates to the reduction target. Barrington's role is to provide the minimal case in which ``$\Aalt$ inevitably appears even in NC$^1$,'' but he does not use it to characterize P as a whole.
+
+\paragraph{E: How is the gap between finite groups and infinite input handled?}
+While Krohn--Rhodes theory applies to finite automata/semigroups, our model relies on the Barrington approach: for each input size~$n$, we consider a sequence of groups~$G_n$, and for NP-hard problems, this sequence maintains a uniform structure (an embedding of $\Aalt$), while the group of operations for polynomial-time circuits remains a variety of solvable groups.
+
+
+\paragraph{F: Why identify ``efficient computation'' with ``solvable groups''?}
+\textbf{Misconception:} ``Polynomial time (Polytime)'' and ``group solvability'' appear to be entirely different concepts. Isn't this identification an arbitrary contrivance to make the proof work?
+
+\textbf{Response:} No, this is a natural consequence based on the \textbf{Krohn--Rhodes Decomposition Theorem} in automata theory. This theorem shows that any finite automaton (and equivalently, any circuit component) can be decomposed into a \textbf{wreath product} of \emph{simple groups} and \emph{aperiodic monoids} (flip-flops, etc.).
+
+\begin{enumerate}[nosep]
+\item \textbf{Algebraic properties of standard logic gates}: AND/OR gates are aperiodic (trivial as groups), and NOT gates correspond to the cyclic group $\mathbb{Z}_2$ (a solvable simple group).
+\item \textbf{Preservation of solvability}: The wreath product of solvable groups is always solvable.
+\end{enumerate}
+
+Therefore, circuits composed of standard logic gates---no matter how complex the wiring---cannot escape the ``solvable group hierarchy (Level~1 complexity)'' algebraically. To obtain non-solvable computational power, one would need to physically introduce a non-solvable gate like $\Aalt$ (a Level~2 component) as a syntactic building block. The definition \lean{IsMAGPolyTime} in this paper faithfully captures this ``limitation of syntax generated from standard gates'' in algebraic terms.
+
+\paragraph{G: Isn't the choice of $\Aalt$ arbitrary? Are there no other barrier candidates?}
+\textbf{Response (CFSG justification):} The choice of $\Aalt$ is not arbitrary but \textbf{mathematically uniquely determined}. The Classification of Finite Simple Groups (CFSG), one of the greatest achievements of 20th-century mathematics, establishes that all finite simple groups fall into exactly four families:
+\begin{enumerate}[nosep]
+\item Cyclic groups of prime order $\Zp$ (solvable)
+\item Alternating groups $A_n$ ($n \geq 5$, non-solvable)
+\item Groups of Lie type
+\item 26 sporadic groups
+\end{enumerate}
+
+The Feit--Thompson Theorem (1963) further establishes that all groups of odd order are solvable. Therefore, non-solvability can only arise in groups of even order. $\Aalt$ (order 60) is the \textbf{smallest non-solvable simple group} guaranteed by CFSG, meaning there are no undiscovered smaller candidates. The name ``Minimum Asymmetry Gap'' in MAG directly reflects this mathematical fact.
+
+\paragraph{H: Could the discovery of new gates with different algebraic properties invalidate this barrier?}
+\textbf{Response (Krohn--Rhodes universality):} The Krohn--Rhodes theorem is a \textbf{universal theorem} that applies to \emph{all finite semigroups/automata}, not to a specific gate set. Any physically realizable gate must be describable as a transformation between a finite number of states, and therefore necessarily falls under Krohn--Rhodes decomposition.
+
+Specifically:
+\begin{itemize}[nosep]
+\item If a new gate $G$ is discovered, its Krohn--Rhodes decomposition can be computed.
+\item Unless the decomposition contains a non-solvable simple group, it remains within the solvable hierarchy.
+\item If it contains a non-solvable simple group, that means it contains $\Aalt$ (or a larger non-solvable group), placing it outside the scope of ``standard'' gates.
+\end{itemize}
+
+Thus, future gate discoveries do not invalidate this framework. Rather, such gates would simply be classified according to which level of the Krohn--Rhodes hierarchy they belong to.
+
+\paragraph{I: Doesn't an ``intermediate structure'' exist between solvable and non-solvable groups?}
+\textbf{Response (CFSG + Feit--Thompson):} No. This is not a conjecture but a \textbf{proven fact} from major achievements of 20th-century mathematics:
+
+\begin{enumerate}[nosep]
+\item \textbf{Feit--Thompson Theorem} (1963, 255-page proof): All finite groups of odd order are solvable.
+\item \textbf{CFSG}: The smallest non-solvable simple group of even order is $\Aalt$ (order 60).
+\end{enumerate}
+
+Therefore, the solvable/non-solvable boundary is \textbf{strictly fixed at order 60}, and intermediate concepts such as ``partially solvable'' or ``weakly non-solvable'' cannot exist mathematically. This strictness forms the foundation of the separation theorem in MAG.
+
+
+
+%% ============================================================================
+%% SECTION 2: MAG MODEL
+%% ============================================================================
+\section{MAG Model (Definition Bundle)}
+
+In this section, we define the MAG (algebraic semantics) used in this paper as a Lean formalism \textbf{definition bundle}. The important thing is that MAG is not a method of proving and deriving a principle, but rather \textbf{what counts as the body of computation}. The separation theorem in this paper holds under this semantic layer.
+
+\subsection{Basic Concept: Translating Computation into Group Theory}
+
+In MAG, computational processes, algorithms, and problems (languages) are translated into group-theoretic objects and then handled.
+\begin{itemize}[nosep]
+\item \textbf{Algorithm side}: Procedure composition, branching, and local operations correspond to the ``composition of transformations'' that follow certain production rules, and are represented as groups (or group actions).
+\item \textbf{Problem side}: Symmetries that identify inputs, invariances of decisions, and constraint actions are expressed as symmetry groups (or subgroups thereof).
+\item \textbf{Solve}: The algorithm's solution to the problem corresponds to the fact that the structures of both are consistent and achieve the same symmetry in a certain sense.
+\end{itemize}
+
+Based on this translation, ``computational resource constraints'' are understood not only in terms of commutative measures (time and circuit size), but also in terms of the structure of group solvability.
+
+%% ============================================================================
+%% NEW SUBSECTION: Krohn-Rhodes Foundation
+%% ============================================================================
+\subsubsection{Historical Foundation: Krohn--Rhodes Decomposition}\label{sec:krohnrhodes}
+
+The translation of computation into group theory is not an ad hoc construction but has deep roots in automata theory. The \textbf{Krohn--Rhodes Decomposition Theorem}~\cite{krohnrhodes1965} establishes that every finite automaton (or equivalently, every finite semigroup) can be decomposed into a cascade (wreath product) of two types of building blocks:
+
+\begin{enumerate}[nosep]
+\item \textbf{Finite simple groups}
+\item \textbf{Finite aperiodic monoids} (flip-flops, resets---components with no non-trivial group structure)
+\end{enumerate}
+
+This decomposition provides the mathematical foundation for our claim that ``polytime = solvable.'' Specifically, the \emph{group complexity} of a finite automaton is the minimum number of simple group components required in any such decomposition. This yields a natural hierarchy:
+
+\begin{itemize}[nosep]
+\item \textbf{Level 0 (Combinational/Aperiodic)}: No simple groups required; only aperiodic components. This corresponds to AND/OR/NOT circuits without feedback.
+\item \textbf{Level 1 (Solvable)}: Only solvable simple groups (cyclic groups $\Zp$) are required. This encompasses counting and modular arithmetic.
+\item \textbf{Level 2+ (Non-solvable)}: Requires non-solvable simple groups, with $\Aalt$ as the minimal such group.
+\end{itemize}
+
+The MAG framework can be understood as formalizing this hierarchy in the context of P~vs~NP, where the solvability barrier corresponds precisely to the transition from Level~1 to Level~2 in the Krohn--Rhodes complexity hierarchy.
+
+\begin{remark}[Gate-Level Solvability Guarantee]
+The standard Boolean gates have the following group-theoretic character under Krohn--Rhodes decomposition:
+\begin{itemize}[nosep]
+\item \textbf{AND/OR gates}: Aperiodic (trivial group component, corresponding to \lean{Unit} in Lean)
+\item \textbf{NOT gate}: Cyclic group $\mathbb{Z}_2$ (solvable, corresponding to \lean{Multiplicative (ZMod 2)} in Lean)
+\item \textbf{INPUT}: Identity transformation (trivial)
+\end{itemize}
+Crucially, the wreath product (cascade composition) of solvable groups remains solvable. Therefore, any circuit composed of standard gates has a Krohn--Rhodes decomposition using only solvable simple groups.
+
+This provides the \textbf{mathematical guarantee} that standard polynomial-time circuits correspond to solvable group structures, which is formalized in \lean{Support/Circuits/KrohnRhodes.lean}.
+\end{remark}
+
+\subsection{Definitions of P, NP-hard, and Solves in MAG}
+
+\begin{definition}[Problem Instance (Definition 2.1)]
+The object that represents the problem (language) is \lean{ProblemInstance}. Each problem instance is associated with a group that represents at least the ``symmetry of the problem side.'' Notation: We write the symmetric group of problem~$p$ as $G(p)$.
+\end{definition}
+
+\begin{definition}[Algorithm (Definition 2.2)]
+The object that represents the algorithm is \lean{Algorithm}. Each algorithm is accompanied by at least a group that represents the ``algorithm-side composition rules.'' Notation: The group of algorithm~$a$ is written as $A(a)$.
+\end{definition}
+
+\begin{definition}[MAG-polytime: Efficiency as Solvability (Definition 2.3)]
+In MAG, ``polytime'' is defined as a set of algorithms that are solvable:
+\[
+a \in \mathrm{P}_{\MAG} \quad :\Longleftrightarrow \quad A(a) \text{ is solvable.}
+\]
+\textbf{Intention}: Solvable groups have a structure that can be decomposed stepwise, which we use here as a proxy for ``low descriptive complexity/low non-commutativity.''
+
+\textbf{Krohn--Rhodes Justification}: As established in Section~\ref{sec:krohnrhodes}, standard Boolean circuits decompose into solvable (Level~0 or Level~1) components. This makes the correspondence between ``polytime circuits'' and ``solvable groups'' a consequence of the Krohn--Rhodes decomposition theorem, not an arbitrary definition.
+\end{definition}
+
+\begin{definition}[MAG-NP-hard: Difficulty as a Non-solvable Kernel (Definition 2.4)]
+NP-hardness in MAG is defined as the unsolvability of the problem group:
+\[
+p \text{ is MAG-NP-hard} \quad :\Longleftrightarrow \quad G(p) \text{ is an unsolvable group } (\neg \IsSolvable(G(p))).
+\]
+\textbf{Intention}: NP-hard abstracts the idea that ``unsolvability remains that cannot be recovered by a solvable description system.'' We use $\Aalt$ as a representative example and witness, as the smallest unsolvable kernel.
+\end{definition}
+
+\begin{remark}[Strengthening Condition: $\Aalt$ Kernel (Remark 2.4.1)]
+Intuition and translation (Bridge/Blueprint) sometimes use a stronger condition: $\Aalt$ is injectively homomorphically embedded in $G(p)$ ($\Aalt \to G(p)$ is injective). This is a sufficient condition to imply MAG-NP-hardness (unsolvability), and naturally appears as a ``kernel recovery'' when connecting from standard computational models to the MAG vocabulary.
+\end{remark}
+
+\begin{definition}[Solves: ``Solving'' as a Group Isomorphism (Definition 2.5)]
+In MAG, ``an algorithm solves a problem'' is defined as a group isomorphism between a group of algorithms and a group of problems:
+\[
+\Solves(a,p) \quad :\Longleftrightarrow \quad A(a) \simeq G(p) \quad (\text{group isomorphism}).
+\]
+\textbf{Intention}: ``Solvable'' does not simply mean that the outputs match, but rather that the algorithm can fully realize the symmetry of the problem. This strength directly connects the discontinuity between solvable and unsolvable kernels to ``separation.''
+
+\textbf{Note on Design Choice}: This isomorphism requirement is intentionally stronger than functional equivalence. We call this \emph{structural realizability}---the algorithm must structurally mirror the problem's symmetry. This design isolates the algebraic barrier where separation becomes provable. See Remark~\ref{rem:structural} in Section~5 for detailed discussion.
+\end{definition}
+
+\begin{remark}[The Absolute Minimality of $A_5$ (Remark 2.6.1)]
+The choice of $A_5$ as the non-solvable kernel has precise mathematical justification 
+rooted in CFSG. The non-abelian simple groups, ordered by cardinality, begin:
+\begin{center}
+\begin{tabular}{cl}
+\textbf{Order} & \textbf{Group} \\
+\hline
+60  & $A_5 \cong \mathrm{PSL}_2(5) \cong \mathrm{PSL}_2(4)$ \\
+168 & $\mathrm{PSL}_2(7)$ \\
+360 & $A_6$ \\
+\end{tabular}
+\end{center}
+The Feit--Thompson Theorem guarantees that non-solvability requires even order, 
+and $A_5$ (order 60) is the minimum. Our ``Minimum Asymmetry Gap'' is thus the 
+mathematically determined boundary between solvable and non-solvable structures.
+\end{remark}
+
+
+
+\begin{definition}[P=NP in MAG (Definition 2.6)]
+In MAG, ``P=NP'' is formulated as the existence of a MAG-polytime algorithm that can solve a MAG-NP-hard problem:
+\[
+\mathrm{P}=\mathrm{NP}_{\text{(MAG)}} \quad :\Longleftrightarrow \quad \forall p\ (\text{NP-hard}(p) \Rightarrow \exists a\ (\text{poly}(a) \wedge \Solves(a,p))).
+\]
+\end{definition}
+
+\subsection{Fundamental Lemma: Isomorphism Preserves Solvability}
+
+Since the definition of MAG includes ``solving = isomorphism'', the following fact of group theory immediately plays a central role:
+
+\begin{lemma}[Isomorphic Invariance of Solvability (Lemma 2.7)]
+If there exists a group isomorphism $A(a) \simeq G(p)$, then $A(a)$ is solvable if and only if $G(p)$ is solvable:
+\[
+A(a) \simeq G(p) \quad \Longrightarrow \quad \bigl(A(a)\ \text{solvable}\ \Leftrightarrow\ G(p)\ \text{solvable}\bigr).
+\]
+\end{lemma}
+
+\subsection{The $\Aalt$ Nucleus Does Not Fall into the Solvable Side}
+
+\begin{lemma}[Insolvability of $\Aalt$ (Lemma 2.8)]
+The alternating group $\Aalt$ is not solvable:
+\[
+\neg(\Aalt\ \text{solvable}).
+\]
+This fact is formalized by existing group theory (Mathlib).
+\end{lemma}
+
+\subsection{Numerical Gap $\Delta D = 7/6$ (Remark)}
+
+In this paper, we define the effective dimension as $D_n := n - 1/n$. In this case, the adjacent difference is
+\[
+D_n - D_{n-1} = 1 + \frac{1}{n(n-1)}.
+\]
+In particular, for $n=3$,
+\[
+\Delta D(3 \to 2) = 1 + \frac{1}{3 \times 2} = \frac{7}{6}.
+\]
+This numerical example is intended to aid the intuition of ``irreversibility associated with projection'' and is not used to establish the separation theorem below.
+
+\subsection{Summary of This Section}
+
+\begin{itemize}[nosep]
+\item MAG is a semantics (definition lattice) that translates computational concepts into group theory.
+\item The Krohn--Rhodes decomposition theorem provides the half-century-old mathematical foundation for the correspondence between polytime circuits and solvable groups.
+\item By the definitions that polytime = solvability, NP-hard = $\Aalt$ kernel, and solve = isomorphism, the separation theorem arises from ``structural incompatibility'' rather than ``computational trickery.''
+\item In the next section, we directly derive $\mathrm{P} \neq \mathrm{NP}$ in MAG using Lemma~2.7 and~2.8.
+\end{itemize}
+
+%% ============================================================================
+%% SECTION 3: MAIN THEOREM
+%% ============================================================================
+\section{$\mathrm{P} \neq \mathrm{NP}$ in MAG (Main Theorem)}
+
+In this section, under the MAG semantics introduced in the previous section, \textbf{$\mathrm{P} \neq \mathrm{NP}$ in MAG}. The conclusion is not based on the skill of the calculation method, but on \textbf{structural incompatibility between solvable and non-solvable kernels ($\Aalt$)} is inevitably derived from.
+
+\begin{remark}[Important Note about the Positioning of the Theorem]
+This theorem is a logical consequence of the definition of MAG, where polytime = solvable and NP-hard = unsolvable, and the proof itself is short. This is intentional by design. The main contribution of this paper is not the proof of Theorem~3.1, but (1)~the presentation of a semantic perspective that captures the essence of P vs NP as a solvability barrier, and (2)~the design of an architecture that rigorously formalizes the assumptions necessary for connecting with the standard model as a \TranslationInterface{}. Theorem~3.1 serves as a proof that this architecture is logically consistent.
+\end{remark}
+
+\subsection{Master Theorem (Within MAG, $\mathrm{P} \neq \mathrm{NP}$)}
+
+The brevity of the following proof is intentional---it demonstrates that under MAG semantics, separation follows directly from basic group theory, without complex argument. The work lies in the semantic design, not the proof technique.
+
+\begin{theorem}[Separation Within MAG (Theorem 3.1)]\label{thm:main}
+The proposition $\mathrm{P}=\mathrm{NP}_{\text{(MAG)}}$ defined by MAG does not hold:
+\[
+\neg\bigl(\mathrm{P}=\mathrm{NP}_{\text{(MAG)}}\bigr).
+\]
+\textbf{Lean support}: \lean{MAG\_P\_neq\_NP : $\neg$ MAG\_P\_equals\_NP}
+\end{theorem}
+
+\begin{remark}[CFSG Foundation of the Universal Barrier (Remark 4.7.1)]
+The $A_5$ universal barrier reflects a fundamental fact established by CFSG: 
+there exists a \emph{structural gap} between solvable groups and the first 
+non-solvable simple group:
+\begin{enumerate}
+    \item \textbf{Solvable world}: All groups built from cyclic groups 
+          $\mathbb{Z}_p$ via extensions
+    \item \textbf{Gap}: No non-solvable simple group with order $< 60$ exists
+    \item \textbf{Non-solvable world}: Begins at $A_5$ (order 60)
+\end{enumerate}
+This gap is not accidental but a consequence of the complete classification. 
+Combined with the Krohn--Rhodes hierarchy (Section 2.1.1), this establishes 
+that the solvability barrier is the \emph{unique minimal} algebraic obstruction 
+to P = NP under MAG semantics.
+\end{remark}
+
+
+
+\subsection{The Core of the Proof: Invariance of Isomorphism and Solvability}
+
+The proof depends only on two points:
+\begin{enumerate}[nosep]
+\item \textbf{Isomorphism preserves solvability (Lemma 2.7)}: If there exists a group isomorphism $A(a) \simeq G(p)$, then $A(a)$ is solvable $\Leftrightarrow$ $G(p)$ is solvable.
+\item \textbf{$\Aalt$ is unsolvable (Lemma 2.8)}: $\neg(\Aalt\ \text{is solvable})$.
+\end{enumerate}
+
+In addition, from the definition of MAG:
+\begin{itemize}[nosep]
+\item $p$ is NP-hard (MAG) if $G(p)$ is unsolvable.
+\end{itemize}
+
+\begin{remark}[Isolation by ``Nuclear Propagation'' Rather than ``Instantaneous by Definition'' (Supplement 3.2.1)]
+Because the separation in MAG is short, one might get the impression that ``$\mathrm{P} \neq \mathrm{NP}$ is immediately apparent just by expanding the definition.'' However, in the Core formalism in this paper, NP-hard is defined as ``unsolvability,'' and then applied to a specific unsolvable example ($\Aalt$) to obtain a contradiction. Therefore, the separation is not a restatement of the definition, but rather a conflict between the mathematical fact that $\Aalt$ is unsolvable and the conservation law of solvability preservation by isomorphism.
+\end{remark}
+
+\subsection{Proof Sketch}
+
+Assuming that $\mathrm{P}=\mathrm{NP}$ in MAG, there exists a MAG-polytime algorithm that solves any MAG-NP-hard problem. In particular, if we take the example $p := \Aalt$ where $\Aalt$ is in the group ($\Aalt$ is unsolvable, so MAG-NP-hard), there exists an \lean{alg} such that:
+\begin{itemize}[nosep]
+\item $A(\text{alg})$ is a solvable group,
+\item $A(\text{alg}) \simeq \Aalt$ holds.
+\end{itemize}
+But since solvability is preserved by isomorphism, $\Aalt$ must also be solvable, which contradicts the unsolvability of $\Aalt$.
+
+Therefore, $\mathrm{P}=\mathrm{NP}$ does not hold in MAG. \qed
+
+\subsection{Lean Formalization (Reader's Guide)}
+
+A Lean implementation of this main theorem conceptually consists of the following:
+\begin{itemize}[nosep]
+\item \lean{IsMAGPolyTime a} defined by \lean{IsSolvable(A(a))}
+\item \lean{IsMAGNPHard p} is defined by $\neg$ \lean{IsSolvable(G(p))} ($\Aalt$ is used as a concrete witness)
+\item \lean{Solves a p} defined by \lean{Nonempty (A(a) $\simeq$* G(p))}
+\item Define \lean{MAG\_P\_equals\_NP} as the quantified proposition that ``for NP-hard~$p$, there exists a polytime~$a$ that solves it.''
+\item The proof is:
+  \begin{itemize}[nosep]
+  \item $\Aalt$ Unsolvability (Mathlib)
+  \item Preservation of solvability by group isomorphism
+  \item Combined, we show that $\neg$ \lean{MAG\_P\_equals\_NP}
+  \end{itemize}
+\end{itemize}
+The reader can check the existence of the main theorem directly from the entry file.
+
+\subsection{Summary}
+
+If we adopt the definition of MAG (polytime = solvable, NP-hard = unsolvable, solve = isomorphism), separation is reduced to ``incompatibility of solvability of groups'' rather than ``computational complexity evaluation.'' In the next section, we will connect this pattern of ``unsolvability does not translate into a solvable description system'' to barrier construction and depth argument using $\Aalt$ as a representative example.
+
+%% ============================================================================
+%% SECTION 4: UNIVERSAL BARRIER
+%% ============================================================================
+\section{$\Aalt$ Universal Non-identifiability Barrier}
+
+In the previous section, we showed that the separation in MAG ($\mathrm{P} \neq \mathrm{NP}$) is necessarily derived from the ``incompatibility between solvable and unsolvable kernels.'' In this section, we will consider the same structure more generally as ``\textbf{Inherent limitations of descriptive systems (models, translations, projections)}'' and formulate it as a universal barrier with $\Aalt$ as its core.
+
+\subsection{Motivation: Treating Separation as ``Inidentifiability'' Rather than ``Computational Complexity''}
+
+In standard complexity theory, the P/NP difference is measured in terms of resources such as time, circuit size, etc. But from the MAG perspective, what is more fundamental is:
+\begin{itemize}[nosep]
+\item Can the object (the deep structure of the problem) be identified in a certain description system (the solvable language/algorithm)?
+\item When information is lost through projection, translation, and abstraction, does the deep non-commutative kernel disappear or remain?
+\item If an unsolvable kernel remains, it cannot be isomorphically reconstructed in the solvable language, resulting in ``apparent randomness'' and ``irreversibility.''
+\end{itemize}
+
+\subsection{Abstraction: Descriptive Systems and Deep Structures}
+
+\begin{definition}[Description System/Language (Definition 4.1)]
+A description system (language, model, syntactic rules) is abstracted as a structure that includes groups (or group actions) generated from it. Intuitively, the ``rules of composition of operations,'' ``normalization,'' and ``gradual decomposability'' allowed by the description system are expressed in group theory. \textbf{Lean support}: \lean{SyntacticSystem}
+\end{definition}
+
+\begin{definition}[Deep Structure (Definition 4.2)]
+The deep structure of the object (the body of the problem, the kernel of the constraints, and the hidden symmetries) is abstracted as a corresponding group. The focus here is whether the deep group contains an unsolvable kernel. \textbf{Lean support}: \lean{DeepStructure}
+\end{definition}
+
+\begin{definition}[Describing Possibility (Definition 4.3)]
+A description system~$S$ can describe (identify) a deep structure~$X$ if the deep group is realized in the system through a suitable translation (homomorphism, representation, encoding). The strongest form is ``isomorphism,'' but in this section we use ``existence of an injective homomorphism'' as the minimal condition sufficient to produce a barrier.
+\begin{itemize}[nosep]
+\item Describability: The kernel of $X$ is on the side of $S$ via \textbf{injective embedding}.
+\end{itemize}
+\textbf{Lean support}: \lean{CanDescribe}
+\end{definition}
+
+\subsection{Central Lemma: Unsolvable Kernels Propagate via Embedding}
+
+\begin{lemma}[Propagation of Unsolvable Kernels (Lemma 4.4)]
+If a group~$H$ is unsolvable and there exists an injective homomorphism $H \hookrightarrow G$, then $G$ is also unsolvable:
+\[
+\bigl(H\ \text{unsolvable}\bigr)\ \wedge\ (H \hookrightarrow G) \quad \Longrightarrow \quad (G\ \text{unsolvable}).
+\]
+\textbf{Lean support}: \lean{nonsolvable\_of\_injective\_from\_nonsolvable}
+\end{lemma}
+
+\textbf{Reason (intuition)}: If $G$ is solvable, then its subgroup~$H$ must also be solvable (solvability is inherited in subgroups), but $H$ is unsolvable, which is a contradiction.
+
+\subsection{Universal Barrier with $\Aalt$ as the Core}
+
+\begin{definition}[Containing the $\Aalt$-kernel (Definition 4.5)]
+A deep structure~$X$ contains an $\Aalt$-kernel if there is an injective homomorphism of $\Aalt$ in the corresponding deep group $G(X)$:
+\[
+\Aalt \hookrightarrow G(X).
+\]
+\end{definition}
+
+\begin{theorem}[$\Aalt$ Gives the Universal Barrier (Theorem 4.6)]\label{thm:barrier}
+For any description system~$S$, if $S$ is ``solvable'', then it is not possible to identify (describe) a deep structure~$X$ that contains an $\Aalt$-kernel:
+\[
+S\ \text{solvable} \quad \Longrightarrow \quad \neg\mathrm{CanDescribe}(S,X) \quad (\text{where } \Aalt \hookrightarrow G(X)).
+\]
+\textbf{Lean support}: \lean{A5\_Universal\_Barrier}, \lean{solvable\_cannot\_describe\_A5}
+\end{theorem}
+
+\textbf{Skeleton of the proof}:
+\begin{enumerate}[nosep]
+\item $\Aalt$ is unsolvable (a known fact).
+\item If $\Aalt \hookrightarrow G(X)$, then $G(X)$ is unsolvable by Lemma~4.4.
+\item On the other hand, if the description system~$S$ is solvable and $X$ can be identified, then the deep group is realized in the system (or at least is reproduced in an isomorphic or equivalent form), and an unsolvable kernel appears in the system.
+\item However, the system is solvable, so it does not contain unsolvable kernels.
+\end{enumerate}
+As a result, the $\Aalt$-kernel becomes a universal barrier that sets the ``limits of solvable description systems.''
+
+%% ============================================================================
+%% NEW REMARK: Krohn-Rhodes Interpretation
+%% ============================================================================
+\begin{remark}[Krohn--Rhodes Interpretation of the $\Aalt$ Barrier]\label{rem:krohnrhodes-barrier}
+The $\Aalt$ barrier has a precise characterization in Krohn--Rhodes theory~\cite{krohnrhodes1965,rhodesqtheory}: $\Aalt$ is the smallest non-solvable simple group, and thus the minimal ``building block'' that cannot appear in any decomposition of a solvable automaton.
+
+This means:
+\begin{itemize}[nosep]
+\item Any machine whose Krohn--Rhodes decomposition includes only solvable simple groups cannot simulate a machine containing $\Aalt$.
+\item The group complexity hierarchy is strict: lower-complexity machines cannot cover (simulate) higher-complexity machines.
+\end{itemize}
+
+Our theorem \lean{nonsolvable\_of\_injective\_from\_nonsolvable} formalizes precisely this hierarchical inviolability. The ``$\Aalt$ Universal Barrier'' (Theorem~\ref{thm:barrier}) is therefore not an ad hoc construction but a restatement of the fundamental limitations established by Krohn--Rhodes theory in the 1960s.
+\end{remark}
+
+\subsection{Relationship with Separation Within MAG}
+
+The MAG $\mathrm{P} \neq \mathrm{NP}$ in Section~3 can be understood as a special case of the universal barrier above.
+\begin{itemize}[nosep]
+\item Description system: MAG-polytime algorithm (the side expressed by the solvable group)
+\item Deep structure: MAG-NP-hard problem ($\Aalt$-nucleus side)
+\item ``Solve'': Completely identify the deep structure by isomorphism
+\end{itemize}
+In this case, the universal barrier Theorem~\ref{thm:barrier} gives us that ``a solvable description system cannot identify the $\Aalt$-kernel'', which directly means that ``$\mathrm{P}=\mathrm{NP}$ is impossible within MAG''.
+
+\subsection{Connection with Numerical Gap (Remark)}
+
+The numerical gap $\Delta D = 7/6$ is an intuitive aid to the barrier in this section. For details, see the numerical examples in Section~2.5. It is not essential for the separation-barrier theorem to hold.
+
+\subsection{Vanishing Depth Barrier with Commutator Trees (Theorem 4.7)}
+
+To bring the universal barrier closer to Barrington-style syntax, we define a commutator tree of depth~$n$ as follows: depth~0 is a variable, and depth~$n+1$ is the commutator $[t,u]$ of a dyadic tree $t,u$ of depth~$n$.
+
+\begin{theorem}[Solvable Vanishing Depth (Theorem 4.7)]
+For any group~$G$ and assignment~$\rho$, the evaluation value $\mathrm{eval}_\rho(t)$ of a commutator tree of depth~$n$ belongs to $\mathrm{derivedSeries}(G,n)$. Thus, if $G$ is solvable and $\mathrm{derivedSeries}(G,k) = \bot$ for some~$k$, then for any $n \geq k$ the commutator tree of depth~$n$ collapses to the identity (vanishing depth).
+
+In contrast, $\Aalt$ has no finite stage where the derived sequence falls into~$\bot$, and so in this sense does not have a finite vanishing depth.
+
+\textbf{Lean support}: \lean{MAG.Core.BarringtonBarrier}\\ (\lean{solvable\_vanishing\_depth}, \lean{A5\_no\_vanishing\_depth})
+\end{theorem}
+
+\subsection{Summary of This Section}
+
+\begin{itemize}[nosep]
+\item Non-solvable kernels ``propagate'' via injective embedding and do not fall into decomposable systems.
+\item The smallest unsolvable kernel ($\Aalt$) provides a universal limit (barrier) for solvable description systems.
+\item The Krohn--Rhodes decomposition theorem confirms that this barrier reflects a fundamental hierarchy in automata theory.
+\item $\mathrm{P} \neq \mathrm{NP}$ within MAG is positioned as a direct consequence of this universal barrier.
+\end{itemize}
+
+%% ============================================================================
+%% SECTION 5: TRANSLATION INTERFACE AND BRIDGE THEOREM
+%% ============================================================================
+\section{Translation Interface and Bridge Theorem}
+
+In this section, we clarify the relationship between MAG semantics (group-theoretic model) and external computational models (any abstract model, including standard TMs and circuit models). The key point here is not to equate standard models with MAG, but to \textbf{extract the assumptions necessary for identification as \TranslationInterface{} (axiom bundle)}, and under that assumption, the separation within MAG is transferred to an external model.
+
+\subsection{Abstract Computational Model \ComputationalModel{}}
+
+\begin{definition}[Abstract Computational Model (Definition 5.1)]
+For any computational model~$M$, we define a structure with the following vocabulary, abstracted as \lean{ComputationalModel M}:
+\begin{itemize}[nosep]
+\item Problem (language) type: \lean{Problem M}
+\item Algorithm type: \lean{Algorithm M}
+\item ``Algorithms solve problems'' relationship: \lean{solves : Algorithm M $\to$ Problem M $\to$ Prop}
+\item ``polytime'' determination: \lean{isPolyTime : Algorithm M $\to$ Prop}
+\item ``NP-hard'' determination: \lean{isNPHard : Problem M $\to$ Prop}
+\end{itemize}
+\textbf{Lean support}: \lean{class ComputationalModel (M)}
+\end{definition}
+
+\subsection{Translation Interface \TranslationInterface{}}
+
+The necessary conditions for translating an external model~$M$ into MAG (group theory semantics) are summarized as the following three conditions, formulated as \lean{TranslationInterface M}.
+
+\begin{definition}[Translation Interface (Definition 5.2)]
+The computational model~$M$ satisfying \TranslationInterface{} conceptually means the following:
+\begin{enumerate}[nosep]
+\item \textbf{polytime $\Rightarrow$ Solvability}: The polytime algorithm in~$M$ can be expressed as a solvable group on the MAG side.
+\[
+\isPolyTime(a)\ \Rightarrow\ \text{(the correspondence group is solvable)}.
+\]
+\item \textbf{NP-hard $\Rightarrow$ $\Aalt$ kernel (injective embedding)}: NP-hard problems in~$M$ have a symmetry group containing an injective embedding of $\Aalt$ on the MAG side.
+\[
+\isNPHard(p) \Rightarrow \exists f: \Aalt \to G(p),\ \text{Injective}(f).
+\]
+\item \textbf{solves $\Rightarrow$ isomorphism}: The ``solving'' in~$M$ gives a group isomorphism on the MAG side.
+\[
+\mathrm{solves}(a,p)\ \Rightarrow\ A(a) \simeq G(p).
+\]
+\end{enumerate}
+\textbf{Lean support}: \lean{class TranslationInterface (M)}
+\end{definition}
+
+%% ============================================================================
+%% NEW REMARK: Krohn-Rhodes Justification for Condition 1
+%% ============================================================================
+\begin{remark}[Justification for Condition~1: Krohn--Rhodes Guarantee]\label{rem:kr-condition1}
+The condition ``polytime $\Rightarrow$ solvable'' is not an arbitrary algebraic assumption but follows from the Krohn--Rhodes decomposition theorem~\cite{krohnrhodes1965}. Standard Boolean gates have the following group-theoretic character:
+\begin{itemize}[nosep]
+\item \textbf{AND/OR gates}: Aperiodic (trivial group component)
+\item \textbf{NOT gate}: $\mathbb{Z}_2$ (solvable)
+\item \textbf{Composition}: Wreath products of solvable components remain solvable
+\end{itemize}
+
+Therefore, any circuit composed of standard gates has a Krohn--Rhodes decomposition using only solvable simple groups. This provides the \textbf{mathematical guarantee} that standard polynomial-time circuits correspond to solvable group structures.
+
+\textbf{Lean support}: See \lean{Support/Circuits/KrohnRhodes.lean} for the formalization of gate-level solvability preservation.
+\end{remark}
+
+\begin{remark}[Rationale for Condition~2: $\Aalt$ Kernel]\label{rem:a5rationale}
+This condition is not an arbitrary algebraic requirement but a consequence of the standard complexity hierarchy. Since the word problem for the symmetric group~$\Sfive$ is complete for $\mathrm{NC}^1$ (Barrington~\cite{barrington1986}), and $\mathrm{NC}^1 \subseteq \mathrm{NP}$, any problem that is NP-hard must computationally subsume the structure of~$\Sfive$ via polynomial-time reduction.
+
+Under the assumption that reductions preserve the underlying syntactic group structure (\emph{algebraic monotonicity}), the $\Sfive$ kernel---and specifically its unsolvable $\Aalt$ subgroup---must appear as an injective embedding in the symmetry group of any NP-hard problem. Thus, this interface condition formally captures the inevitable presence of the $\Aalt$ structure within NP via Barrington's theorem.
+
+Note that this algebraic monotonicity assumption is the key bridge condition that remains to be fully formalized; it is isolated within the \TranslationInterface{} as condition~(2).
+\end{remark}
+
+\begin{remark}[Structural Realizability vs.\ Functional Equivalence]\label{rem:structural}
+We explicitly acknowledge that defining $\Solves(a,p)$ as a group isomorphism ($A(a) \simeq G(p)$) is a stronger condition than standard functional equivalence (i.e., that algorithm~$a$ merely produces the correct output for problem~$p$).
+
+However, this definition is intentional. It captures the notion of \emph{Structural Realizability}: can the algorithm's internal operation group structurally emulate the symmetry group of the problem?
+
+By enforcing isomorphism, we isolate the algebraic barrier: even if a solvable circuit could functionally compute the output bits, it cannot do so by structurally mirroring the non-solvable $\Aalt$ kernel. This distinction shifts the P~vs~NP question from ``function computation'' to ``structure representation,'' where the separation becomes algebraically provable. This is analogous to how Galois theory shifts the question of ``solvability by radicals'' from ``finding roots'' to ``group structure.''
+\end{remark}
+
+\subsection{$\mathrm{P}=\mathrm{NP}$ Proposition on the External Model}
+
+\begin{definition}[$\mathrm{P}=\mathrm{NP}$ on Model $M$ (Definition 5.3)]
+\leavevmode\par\noindent
+Using only the vocabulary of \ComputationalModel{}~$M$, we define ``$\mathrm{P}=\mathrm{NP}$'' on the model~$M$ as follows:
+\[
+\mathrm{P}=\mathrm{NP}\ \text{(on }M) \quad :\Longleftrightarrow \quad \forall p\ (\isNPHard(p) \Rightarrow \exists a\ (\isPolyTime(a) \wedge \mathrm{solves}(a,p))).
+\]
+\textbf{Lean support}: \lean{def Standard\_P\_equals\_NP (M) : Prop := ...}
+\end{definition}
+
+\subsection{Bridge Theorem}
+
+\begin{theorem}[Bridge Theorem (Theorem 5.4)]\label{thm:bridge}
+\leavevmode\par\noindent
+For a computational model~$M$ satisfying \ComputationalModel{} and \TranslationInterface{}~$M$:
+\[
+\neg(\mathrm{P}=\mathrm{NP}\ \text{(on }M)).
+\]
+\textbf{Lean support}: \lean{Bridge\_P\_neq\_NP} and \lean{Bridge\_P\_neq\_NP'}
+\end{theorem}
+
+\textbf{Skeleton of the proof}:
+\begin{itemize}[nosep]
+\item Assume \lean{Standard\_P\_equals\_NP}. Then for any NP-hard problem~$p$, there exists a polytime algorithm~$a$ that solves it.
+\item By \TranslationInterface{} condition~(1), the correspondence group in~$a$ is solvable.
+\item At the same time, condition~(3) gives a group isomorphism correspondence, so the problem group is also solvable.
+\item However, condition~(2) injectively embeds $\Aalt$ in NP-hard problems, and hence the problem set is unsolvable.
+\item Due to the contradiction between solvability and insolvability, \lean{Standard\_P\_equals\_NP} is denied.
+\end{itemize}
+This is the logic of Section~3 simply ``transported'' to the external model.
+
+\begin{remark}
+The vanishing depth lemma for commutator trees unconditionally proves that the solvable side cannot hold ``deep commutator syntax'' via the derivation sequence. Therefore, the intuition that a solvable description system cannot identify an unsolvable kernel as long as a translation from the standard model to a Barrington-type commutator syntax is given is formally reinforced.
+\end{remark}
+
+\subsection{End-to-End Verification Using Toy Models}
+
+The bridging theorem is abstract in the sense that if a translation IF is given, then separation follows. We construct a toy computational model (BarringtonToy) that actually satisfies \TranslationInterface{} and verify using Lean that separation decreases from end to end.
+
+\begin{construction}[BarringtonToyModel (Configuration 5.5)]
+In the toy model, concepts are ``matched by definition'' as follows:
+\begin{itemize}[nosep]
+\item \lean{isPolyTime a} is defined as ``a set of algorithms is solvable.''
+\item \lean{isNPHard p} is defined as ``$\Aalt$ is injectively embeddable in the problem group'' (which leads to unsolvability).
+\item \lean{solves a p} is defined as ``a group isomorphism exists.''
+\end{itemize}
+Then, the three conditions of \TranslationInterface{} are satisfied by the definition expansion (and the existence of unsolvable examples).
+\end{construction}
+
+\begin{lemma}[Concrete Embedding of $\Aalt \hookrightarrow \Sfive$ (Lemma 5.6)]
+As an NP-hard example of toy, $\Sfive$ (\lean{Perm (Fin 5)}) and by natural inclusion
+\[
+\Aalt \hookrightarrow \Sfive.
+\]
+In Lean this is constructed as a concrete homomorphism and an injectivity.
+\end{lemma}
+
+\begin{theorem}[BarringtonToy\_P\_neq\_NP (Theorem 5.7)]
+Under the toy configuration above,
+\[
+\neg(\mathrm{P}=\mathrm{NP}\ \text{(on BarringtonToyModel)}).
+\]
+\textbf{Lean support}: \lean{BarringtonToy\_P\_neq\_NP}
+\end{theorem}
+
+\begin{remark}[Significance]
+This shows that Bridge is not just an ``abstract hypothetical play'' but actually works end-to-end in its formalization. This also serves as confirmation to the reviewer that the assumptions are well-formulated.
+\end{remark}
+
+\subsection{Relationship Between Standard P and NP (Scope of This Paper)}
+
+Our formalism clearly separates:
+\begin{itemize}[nosep]
+\item Unconditionally proven nuclei: intra-MAG separation (Section~3) and universal barrier (Section~4)
+\item Conditional Transfer of Assertions: Bridge Theorem (this section)
+\item Remaining issues: Standard TM/circuit model \TranslationInterface{} configuration that satisfies the above (managed separately as a Blueprint)
+\end{itemize}
+Therefore, the ``solution'' of this paper is \textbf{not an unconditional solution of standard problems}, but rather \textbf{extract translation assumptions as patterns and strictly present the boundary between the formalized core and the unformalized core}.
+
+\subsection{Summary of This Section}
+
+\begin{itemize}[nosep]
+\item \TranslationInterface{} localizes the assumptions necessary to connect the standard model to the MAG semantics.
+\item The Krohn--Rhodes decomposition theorem provides the theoretical justification for Condition~1 (polytime $\Rightarrow$ solvable).
+\item Under this assumption, the intra-MAG separation can be transferred to any model (Bridge theorem).
+\item The toy model allows us to formally verify that the Bridge works end-to-end.
+\end{itemize}
+
+%% ============================================================================
+%% CONCLUSION
+%% ============================================================================
+\section{Conclusion}
+
+This paper aims to avoid limiting the discussion of P vs NP to the ``measurement of computational resources'' alone. From the standpoint of \textbf{making the semantics of computation explicit}, MAG (group-theoretic semantics) was introduced, and its internal separation ($\mathrm{P} \neq \mathrm{NP}$) was fully formalized using Lean. The central observation is that, just as Galois theory normalized the question ``Can it be solved by radicals?'' to the structural question ``Is it a solvable group?'', the moment P vs NP becomes clearer, ``in which description system is it considered to be `solvable'?'', \textbf{structural incompatibility between solvable and non-solvable kernels ($\Aalt$)} becomes the problem, and separation becomes inevitable.
+
+
+The mathematical foundation of our approach is anchored in the Classification of 
+Finite Simple Groups (CFSG), which establishes $A_5$ as the smallest non-solvable 
+simple group. This is not an arbitrary choice but a mathematically determined 
+boundary: the Feit--Thompson Theorem guarantees that non-solvability requires 
+even order, and CFSG confirms that 60 (the order of $A_5$) is the minimum such 
+order. Our separation theorem thus inherits the full weight of 20th-century 
+finite group theory.
+
+The results of this paper can be organized into three layers:
+\begin{enumerate}[nosep]
+\item \textbf{Unconditional nucleus (separation within MAG)}: We introduce MAG semantics as a definitional lattice where polytime = solvability, NP-hard = $\Aalt$ kernel, and solve = group isomorphism. \textbf{$\mathrm{P}=\mathrm{NP}_{\text{(MAG)}}$ does not hold}. Here, we have used only the basic facts of the unsolvability of $\Aalt$ and the preservation of solvability by group isomorphism.
+\item \textbf{$\Aalt$ Universal Barrier}: As a general principle behind separation, we abstract the fact that unsolvable kernels propagate by injective embedding and do not fall into solvable description systems, and formulate it as a universal barrier with kernel $\Aalt$. The Krohn--Rhodes decomposition theorem~\cite{krohnrhodes1965} confirms that this barrier reflects the fundamental complexity hierarchy in automata theory. Separation within MAG is positioned as its minimal instantiation.
+\item \textbf{Localization of translation assumptions (Bridge) and toy verification}: Regarding the relationship with standard computational models (TM/circuits, etc.), we do not equate them, but make necessary assumptions as \TranslationInterface{}. We then showed that under this assumption, the separation can be transferred to the external model. Furthermore, we provided an example that works end-to-end in the toy computation model, and confirmed that the bridging form is not empty theory.
+\end{enumerate}
+
+%% ============================================================================
+%% ARTIFACTS OVERVIEW
+%% ============================================================================
+\section*{Artifacts Overview}
+
+The formalization of this paper consists of the following main modules:
+
+\subsection*{A.1 MAG Model and Separation Theorem (Core)}
+\begin{itemize}[nosep]
+\item \lean{Core/MAG\_P\_neq\_NP.lean}: MAG semantics definition lattice (polytime/NP-hard/solve) and main theorem \lean{MAG\_P\_neq\_NP}.
+\end{itemize}
+
+\subsection*{A.2 Universal Barrier ($\Aalt$)}
+\begin{itemize}[nosep]
+\item \lean{Core/A5\_Barrier.lean}: Abstracting the propagation of unsolvable kernels, we give a universal barrier theorem with kernel $\Aalt$.
+\end{itemize}
+
+\subsection*{A.3 Bridge and Toy}
+\begin{itemize}[nosep]
+\item \lean{Core/Bridge/Theorem.lean} and \lean{Core/Bridge/ToyInstantiation.lean}:\\
+\ComputationalModel{} and \TranslationInterface{} definition,\\
+Bridging Theorem \lean{Bridge\_P\_neq\_NP}, and toy \lean{BarringtonToy\_P\_neq\_NP}.
+\end{itemize}
+
+\subsection*{A.4 Assistance}
+\begin{itemize}[nosep]
+\item Barrington/circuit synthesis/syntactic group related auxiliary modules.
+\item \lean{Core/BarringtonBarrier.lean}: Comparison of the vanishing depth of solvable groups using commutator trees (Barrington-type reinforcement) and the $\Aalt$ side.
+\item \lean{Support/Circuits/KrohnRhodes.lean}: Formalization of gate-level solvability preservation based on Krohn--Rhodes decomposition theory.
+\end{itemize}
+
+%% ============================================================================
+%% REPRODUCIBILITY
+%% ============================================================================
+\section*{Reproducibility}
+
+The theorems in this paper are formalized using Lean, and the artifacts will be provided in a public repository. Reviewers and readers can machine-verify the main theorems by following the steps below.
+
+\subsection*{R.1 Build Procedure (Outline)}
+
+\begin{enumerate}[nosep]
+\item Prepare Lean (elan) and Lake.
+\item Execute \texttt{lake build} directly under the repository.
+\item By type-checking the entry file \lean{Main.lean}, the main theorem can be confirmed.
+\end{enumerate}
+
+\subsection*{R.2 Entry File and Main Theorem}
+
+In the entry file \lean{Main.lean}, at least the following theorems exist and can be confirmed by \lean{\#check}:
+\begin{itemize}[nosep]
+\item \textbf{MAG internal separation}: \lean{MAG.Core.MAG\_P\_neq\_NP}
+\item \textbf{Bridging theorem}: \lean{MAG.Core.Bridge.Bridge\_P\_neq\_NP}
+\item \textbf{Toy verification}: \lean{MAG.Core.Bridge.BarringtonToy\_P\_neq\_NP}
+\end{itemize}
+
+\subsection*{R.3 Separation of Scope and Deliverables (Core / Blueprint)}
+
+The deliverables contributing to the argument (\textbf{Core}) does not rely on \lean{sorry} or additional axioms, whereas the Blueprint includes provisions for concrete translation into the Standard Model, but does not include them in its core claims.
+
+%% ============================================================================
+%% ACKNOWLEDGMENTS
+%% ============================================================================
+\section*{Acknowledgments}
+The author would like to thank the Lean and Mathlib communities for their efforts in developing the tools and libraries that supported parts of this work. LaTeX typesetting, English refinement, and parts of the explanations were refined with the assistance of large-scale language models. All mathematical content, claims, and proofs have been verified and are the sole responsibility of the author.
+
+\paragraph{Funding.}
+This research received no external funding.
+
+\paragraph{Conflict of Interest.}
+The author declares no conflict of interest.
+
+\paragraph{Data Availability.}
+The Lean formalization artifacts are available at:
+\url{https://github.com/nuu/MAG-PneqNP}
+
+%% ============================================================================
+%% REFERENCES
+%% ============================================================================
+\begin{thebibliography}{99}
+
+\bibitem{barrington1986}
+D.~A. Barrington.
+\newblock Bounded-width polynomial-size branching programs recognize exactly those languages in NC$^1$.
+\newblock In \emph{Proc.\ 18th Annual ACM Symposium on Theory of Computing (STOC)}, pages 1--5, 1986.
+
+\bibitem{cook1971}
+S.~A. Cook.
+\newblock The complexity of theorem-proving procedures.
+\newblock In \emph{Proc.\ 3rd Annual ACM Symposium on Theory of Computing (STOC)}, pages 151--158, 1971.
+
+\bibitem{galois1846}
+\'{E}.~Galois.
+\newblock \emph{Oeuvres math\'{e}matiques}.
+\newblock Journal de math\'{e}matiques pures et appliqu\'{e}es, 11:381--444, 1846.
+
+\bibitem{klein1872}
+F.~Klein.
+\newblock Vergleichende Betrachtungen \"{u}ber neuere geometrische Forschungen (A comparative review of recent researches in geometry).
+\newblock \emph{Mathematische Annalen}, 43:63--100, 1893.
+\newblock Originally published as a separate pamphlet, Erlangen, 1872.
+
+\bibitem{krohnrhodes1965}
+K.~Krohn and J.~Rhodes.
+\newblock Algebraic theory of machines. I. Prime decomposition theorem for finite semigroups and machines.
+\newblock \emph{Transactions of the American Mathematical Society}, 116:450--464, 1965.
+
+\bibitem{rhodesqtheory}
+J.~Rhodes and B.~Steinberg.
+\newblock \emph{The q-theory of Finite Semigroups}.
+\newblock Springer Monographs in Mathematics, 2009.
+
+\bibitem{lean4}
+L.~de Moura and S.~Ullrich.
+\newblock The Lean 4 theorem prover and programming language.
+\newblock In \emph{Proc.\ 28th International Conference on Automated Deduction (CADE)}, pages 625--635, 2021.
+
+\bibitem{mathlib}
+The mathlib Community.
+\newblock The Lean mathematical library.
+\newblock In \emph{Proc.\ 9th ACM SIGPLAN International Conference on Certified Programs and Proofs (CPP)}, pages 367--381, 2020.
+
+\bibitem{rotman2012}
+J.~J. Rotman.
+\newblock \emph{An Introduction to the Theory of Groups}.
+\newblock Springer, 4th edition, 2012.
+
+\bibitem{arora2009}
+S.~Arora and B.~Barak.
+\newblock \emph{Computational Complexity: A Modern Approach}.
+\newblock Cambridge University Press, 2009.
+
+\bibitem{FeitThompson1963}
+W. Feit and J. G. Thompson.
+\newblock Solvability of groups of odd order.
+\newblock {\em Pacific Journal of Mathematics}, 13(3):775--1029, 1963.
+
+\bibitem{CFSG}
+D. Gorenstein, R. Lyons, and R. Solomon.
+\newblock {\em The Classification of the Finite Simple Groups}.
+\newblock Mathematical Surveys and Monographs, American Mathematical Society, 
+1994--2018.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,126 @@
+% print.tex - Print/PDF version for MAG P≠NP blueprint
+% For use with pdflatex or lualatex
+% Build: pdflatex print.tex && bibtex print && pdflatex print.tex && pdflatex print.tex
+
+\documentclass[11pt,a4paper]{report}
+
+% ============================================================
+% Packages
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{url}
+
+\geometry{margin=1in}
+
+% ============================================================
+% Hyperref configuration
+% ============================================================
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  citecolor=green!50!black,
+  urlcolor=blue!70!black,
+  pdftitle={MAG P≠NP: A Group-Theoretic Approach - Lean 4 Formalization Blueprint},
+  pdfauthor={Masaru Numagaki}
+}
+
+% ============================================================
+% Load common mathematical macros
+% ============================================================
+\input{macros/common}
+
+% ============================================================
+% Blueprint macros for print version
+% (These ARE defined here because leanblueprint plugin
+%  only processes web output, not PDF)
+% ============================================================
+
+% Lean code reference - prints in monospace for print version
+\newcommand{\lean}[1]{\texttt{#1}}
+
+% Mark as formalized in Lean
+\newcommand{\leanok}{\hfill\textcolor{green!60!black}{$\checkmark$~Lean}}
+
+% Mark as not yet formalized
+\newcommand{\notready}{\hfill\textcolor{red!60!black}{$\times$~TODO}}
+
+% Dependency declaration (no-op in print, info is in web graph)
+\newcommand{\uses}[1]{}
+\newcommand{\proves}[1]{}
+
+% Paper reference (section correspondence)
+\newcommand{\paperref}[1]{\textit{(Paper: #1)}}
+
+% Project URLs (no-op in print)
+\newcommand{\home}[1]{}
+\newcommand{\github}[1]{}
+\newcommand{\dochome}[1]{}
+
+% ============================================================
+% Theorem environments
+% ============================================================
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{example}[definition]{Example}
+
+\theoremstyle{plain}
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{lemma}[definition]{Lemma}
+\newtheorem{corollary}[definition]{Corollary}
+\newtheorem{proposition}[definition]{Proposition}
+
+\theoremstyle{remark}
+\newtheorem{remark}[definition]{Remark}
+
+% ============================================================
+% Document info
+% ============================================================
+\title{\textbf{MAG P$\neq$NP: A Group-Theoretic Approach}\\[1em]
+       \large Lean 4 Formalization Blueprint\\[0.5em]
+       \normalsize Version 1.0}
+\author{Masaru Numagaki}
+\date{January 2026}
+
+% ============================================================
+% Document
+% ============================================================
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This blueprint documents the Lean 4 formalization of P$\neq$NP in the MAG (Minimum Asymmetry Gap) model.
+The MAG framework translates computational complexity into group theory:
+\textbf{polytime} corresponds to solvable groups,
+\textbf{NP-hard} corresponds to non-solvable groups (with $A_5$ as the minimal non-solvable core), and
+\textbf{solves} corresponds to group isomorphism.
+
+\medskip
+\noindent\textbf{Main Results (all sorry-free):}
+\begin{enumerate}
+  \item \textbf{Theorem 3.1}: MAG internal separation (unconditional)
+  \item \textbf{Theorem 4.6}: $A_5$ Universal Barrier (unconditional)
+  \item \textbf{Theorem 4.7}: Solvable vanishing depth (unconditional)
+  \item \textbf{Theorem 5.4}: Bridge theorem (conditional on TranslationInterface)
+  \item \textbf{Theorem 5.7}: Toy model end-to-end verification (unconditional)
+\end{enumerate}
+
+\medskip
+\noindent\textbf{Proof Status:} Core/ directory: sorry = 0, axiom = 0
+\end{abstract}
+
+\tableofcontents
+
+% Include the main content
+\input{content}
+
+\end{document}

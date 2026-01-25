@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "MAG: Formalizing the Solvability Barrier in P vs NP via Group-Theoretic Semantics"
+authors:
+  - family-names: "Numagaki"
+    given-names: "Masaru"
+    orcid: "https://orcid.org/0000-0001-5683-0845"
+version: "v1.0"
+date-released: "2026-01-25"
+repository-code: "https://github.com/nuu/MAG-PneqNP"
+abstract: >
+  Lean formalization : an algebraic (MAG) model separation theorem, a conditional translation-interface bridge, and a toy end-to-end instantiation.
+license: "MIT"
+keywords:
+  - "P vs NP"
+  - "computational complexity"
+  - "alternating group A5"
+  - "group-theoretic semantics"
+  - "solvable groups"
+  - "formal verification"
+  - "Lean 4"
+  - "Krohn–Rhodes decomposition"
+  - "Barrington’s theorem"
+  - "CFSG (Classification of Finite Simple Groups)"

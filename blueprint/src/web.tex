@@ -1,0 +1,36 @@
+\documentclass[multi=page]{report}
+
+\usepackage{amssymb, amsthm, amsmath}
+\usepackage{hyperref}
+\usepackage{url}
+
+% Load common mathematical macros only
+\input{macros/common}
+\input{macros/web}
+
+% Theorem environments
+\newtheorem{definition}{Definition}[chapter]
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{lemma}[definition]{Lemma}
+\newtheorem{corollary}[definition]{Corollary}
+\newtheorem{proposition}[definition]{Proposition}
+\newtheorem{remark}[definition]{Remark}
+\newtheorem{example}[definition]{Example}
+
+% Paper reference macro (for web version)
+\newcommand{\paperref}[1]{\textit{(Paper: #1)}}
+
+% Project URLs (update these with your actual URLs)
+\home{https://github.com/nuu/MAG-PneqNP}
+\github{https://github.com/nuu/MAG-PneqNP}
+\dochome{https://nuu.github.io/MAG-PneqNP/docs}
+
+\title{MAG P$\neq$NP: A Group-Theoretic Approach\\[0.5em]
+       \large Lean 4 Formalization Blueprint}
+\author{Masaru Numagaki}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\input{content}
+\end{document}

@@ -1,0 +1,862 @@
+% content.tex for MAG P≠NP project (leanblueprint format)
+% Author: Masaru Numagaki
+% Date: January 2026
+% Version: 1.3 (aligned with mag_pnp.pdf references [1]-[12], added Klein)
+%
+% Usage: This file is designed for Patrick Massot's leanblueprint tool.
+% See https://github.com/PatrickMassot/leanblueprint
+%
+% Correspondence: This blueprint follows the structure of
+% "MAG: Formalizing the Solvability Barrier in P vs NP via Group-Theoretic Semantics"
+%
+% Bibliography keys correspond to references.bib:
+%   [1] Barrington1986    [5] RhodesSteinberg2009  [9] AroraBarak2009
+%   [2] Cook1971          [6] Lean4_2021           [10] FeitThompson1963
+%   [3] Galois1846        [7] Mathlib2020          [11] CFSG1994
+%   [4] Klein1872         [8] Rotman2012           [12] KrohnRhodes1965
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+\label{chap:introduction}
+
+This blueprint presents a formal verification of P$\neq$NP in the MAG (Minimum Asymmetry Gap) model,
+implemented in Lean~4 \cite{Lean4_2021} with Mathlib \cite{Mathlib2020}. The MAG framework translates computational complexity into group theory:
+\begin{itemize}
+  \item \textbf{Polytime} corresponds to \emph{solvable groups}
+  \item \textbf{NP-hard} corresponds to \emph{non-solvable groups} (with $A_5$ as the minimal non-solvable core)
+  \item \textbf{Solves} corresponds to \emph{group isomorphism}
+\end{itemize}
+
+\section{Main Results}
+
+The main formalized results are:
+\begin{enumerate}
+  \item \textbf{MAG internal separation} (Theorem 3.1): Unconditional, fully formalized
+  \item \textbf{$A_5$ Universal Barrier} (Theorem 4.6): Unconditional, fully formalized
+  \item \textbf{Solvable vanishing depth} (Theorem 4.7): Unconditional, fully formalized
+  \item \textbf{Bridge theorem} (Theorem 5.4): Conditional on TranslationInterface, fully formalized
+  \item \textbf{Toy model verification} (Theorem 5.7): End-to-end, unconditional, fully formalized
+\end{enumerate}
+
+\section{Scope and Non-claims}
+
+\begin{remark}[Scope]
+This formalization does NOT unconditionally claim to solve the Clay P vs NP problem.
+What we prove:
+\begin{itemize}
+  \item \textbf{Unconditional:} MAG-internal P$\neq$NP, where definitions are group-theoretic
+  \item \textbf{Conditional:} If TranslationInterface holds for model $M$, then P$\neq$NP in $M$
+\end{itemize}
+The TranslationInterface separates the formalized core from unformalized translation assumptions.
+\end{remark}
+
+\section{Historical Foundation}
+
+The MAG framework can be understood as the \textbf{computational analogue of Klein's Erlangen Program}.
+Just as Klein (1872) proposed classifying geometries by their transformation groups,
+MAG classifies computational problems by their symmetry groups and algorithms by their operation groups.
+
+The MAG framework builds on several foundational results:
+\begin{itemize}
+  \item \textbf{Galois Theory} \cite{Galois1846}: The non-solvability of $A_5$ and the connection between solvability and radical solutions
+  \item \textbf{Klein's Erlangen Program} \cite{Klein1872}: The methodology of translating mathematical objects into group-theoretic objects for classification
+  \item \textbf{Krohn-Rhodes Decomposition} \cite{KrohnRhodes1965, RhodesSteinberg2009}: Every finite automaton decomposes into simple groups and aperiodic monoids
+  \item \textbf{Barrington's Theorem} \cite{Barrington1986}: NC$^1$ = width-5 branching programs over $S_5$
+  \item \textbf{Cook-Levin Theorem} \cite{Cook1971}: SAT is NP-complete, establishing the existence of NP-hard problems
+  \item \textbf{Classification of Finite Simple Groups} \cite{CFSG1994}: $A_5$ is the smallest non-solvable simple group
+  \item \textbf{Feit-Thompson Theorem} \cite{FeitThompson1963}: All groups of odd order are solvable
+\end{itemize}
+
+For a comprehensive treatment of computational complexity, see Arora and Barak \cite{AroraBarak2009}.
+For group theory foundations, see Rotman \cite{Rotman2012}.
+
+\section{File Structure}
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Paper Section} & \textbf{Lean File} & \textbf{Status} \\
+\hline
+Section 2 (Definitions) & \texttt{Core/MAG\_P\_neq\_NP.lean} & $\checkmark$ sorry-free \\
+Section 3 (Main Theorem) & \texttt{Core/MAG\_P\_neq\_NP.lean} & $\checkmark$ sorry-free \\
+Section 4.1--4.5 & \texttt{Core/A5\_Barrier.lean} & $\checkmark$ sorry-free \\
+Section 4.6 & \texttt{Core/A5\_Barrier.lean} & $\checkmark$ sorry-free \\
+Section 4.7 & \texttt{Core/BarringtonBarrier.lean} & $\checkmark$ sorry-free \\
+Section 5.1--5.3 & \texttt{Core/Bridge/Interface.lean} & $\checkmark$ sorry-free \\
+Section 5.4 & \texttt{Core/Bridge/Theorem.lean} & $\checkmark$ sorry-free \\
+Section 5.5 & \texttt{Core/Bridge/ToyInstantiation.lean} & $\checkmark$ sorry-free \\
+Appendix A & \texttt{Support/Barrington/*.lean} & $\checkmark$ sorry-free \\
+Appendix A & \texttt{Support/Circuits/KrohnRhodes.lean} & $\checkmark$ sorry-free \\
+Appendix A & \texttt{Support/Syntactic/Theory.lean} & $\checkmark$ sorry-free \\
+Appendix B & \texttt{Blueprint/*} & Design docs \\
+\hline
+\end{tabular}
+\end{center}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{MAG Model Definitions}
+\label{chap:mag-model}
+
+This chapter introduces the core definitions of the MAG framework.
+\paperref{Section 2}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Problem and Algorithm Structures}
+
+\begin{definition}[ProblemInstance]
+\label{def:problem-instance}
+\lean{MAG.Core.ProblemInstance}
+\leanok
+\paperref{Definition 2.1}
+
+A \emph{problem instance} is represented by its symmetry group $G$.
+\begin{verbatim}
+structure ProblemInstance where
+  G : Type
+  [group_G : Group G]
+  [fintype_G : Fintype G]
+\end{verbatim}
+\end{definition}
+
+\begin{definition}[Algorithm]
+\label{def:algorithm}
+\lean{MAG.Core.Algorithm}
+\leanok
+\paperref{Definition 2.2}
+
+An \emph{algorithm} is represented by the group of operations it can generate.
+\begin{verbatim}
+structure Algorithm where
+  G_alg : Type
+  [group_alg : Group G_alg]
+  [fintype_alg : Fintype G_alg]
+\end{verbatim}
+\end{definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{MAG Complexity Classes}
+
+\begin{definition}[IsMAGPolyTime]
+\label{def:mag-polytime}
+\lean{MAG.Core.IsMAGPolyTime}
+\leanok
+\uses{def:algorithm}
+\paperref{Definition 2.3}
+
+An algorithm is \emph{MAG-polytime} if its operation group is solvable.
+This definition is justified by the Krohn-Rhodes decomposition theorem \cite{KrohnRhodes1965}:
+standard Boolean gates decompose into solvable components.
+\[
+  a \in \mathrm{P}_{\mathrm{MAG}} \quad:\Longleftrightarrow\quad A(a)\ \text{is solvable}
+\]
+\begin{verbatim}
+class IsMAGPolyTime (alg : Algorithm) : Prop where
+  solvable_structure : IsSolvable alg.G_alg
+\end{verbatim}
+\end{definition}
+
+\begin{definition}[IsMAGNPHard]
+\label{def:mag-nphard}
+\lean{MAG.Core.IsMAGNPHard}
+\leanok
+\uses{def:problem-instance}
+\paperref{Definition 2.4}
+
+A problem is \emph{MAG-NP-hard} if its symmetry group is non-solvable.
+\[
+  p\ \text{is MAG-NP-hard} \quad:\Longleftrightarrow\quad \neg\, \mathrm{IsSolvable}(G(p))
+\]
+\begin{verbatim}
+class IsMAGNPHard (prob : ProblemInstance) : Prop where
+  non_solvable : ¬ IsSolvable prob.G
+\end{verbatim}
+\end{definition}
+
+\begin{definition}[Solves]
+\label{def:solves}
+\lean{MAG.Core.Solves}
+\leanok
+\uses{def:algorithm, def:problem-instance}
+\paperref{Definition 2.5}
+
+An algorithm \emph{solves} a problem if their groups are isomorphic.
+\[
+  \mathrm{Solves}(a,p) \quad:\Longleftrightarrow\quad A(a) \simeq G(p) \quad\text{(group isomorphism)}
+\]
+\begin{verbatim}
+def Solves (alg : Algorithm) (prob : ProblemInstance) : Prop :=
+  Nonempty (alg.G_alg ≃* prob.G)
+\end{verbatim}
+\end{definition}
+
+\begin{definition}[MAG\_P\_equals\_NP]
+\label{def:mag-p-equals-np}
+\lean{MAG.Core.MAG\_P\_equals\_NP}
+\leanok
+\uses{def:mag-polytime, def:mag-nphard, def:solves}
+\paperref{Definition 2.6}
+
+The MAG version of P=NP states that every MAG-NP-hard problem can be solved by some MAG-polytime algorithm.
+\begin{verbatim}
+def MAG_P_equals_NP : Prop :=
+  ∀ (prob : ProblemInstance) [IsMAGNPHard prob],
+    ∃ (alg : Algorithm), IsMAGPolyTime alg ∧ Solves alg prob
+\end{verbatim}
+\end{definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The $A_5$ Instance}
+
+\begin{definition}[A5\_Instance]
+\label{def:a5-instance}
+\lean{MAG.Core.A5\_Instance}
+\leanok
+\uses{def:problem-instance}
+
+The alternating group $A_5$ as a problem instance.
+\begin{verbatim}
+def A5_Instance : ProblemInstance where
+  G := alternatingGroup (Fin 5)
+\end{verbatim}
+\end{definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Core Algebraic Facts}
+\label{chap:algebraic-facts}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Properties of $A_5$}
+
+\begin{theorem}[$A_5$ is non-solvable]
+\label{thm:a5-not-solvable}
+\lean{MAG.Core.A5\_not\_solvable}
+\leanok
+
+The alternating group $A_5$ is not solvable:
+\[
+  \neg\, \mathrm{IsSolvable}(A_5)
+\]
+This is the fundamental algebraic fact underlying MAG separation, first established by Galois \cite{Galois1846}.
+The proof uses the simplicity of $A_5$ and explicit non-commuting witnesses.
+\end{theorem}
+
+\begin{theorem}[$A_5$ is simple]
+\label{thm:a5-simple}
+\lean{MAG.Core.A5\_is\_simple}
+\leanok
+
+$A_5$ is a simple group (from Mathlib: \texttt{alternatingGroup.isSimpleGroup\_five}).
+\end{theorem}
+
+\begin{theorem}[$|A_5| = 60$]
+\label{thm:a5-card}
+\lean{MAG.Core.A5\_card}
+\leanok
+
+The cardinality of $A_5$ is exactly 60 (proven via \texttt{native\_decide}).
+By the classification of finite simple groups \cite{CFSG1994}, $A_5$ is the smallest non-solvable simple group.
+The Feit-Thompson theorem \cite{FeitThompson1963} further establishes that non-solvability requires even order.
+\end{theorem}
+
+\begin{corollary}[$A_5$ is MAG-NP-hard]
+\label{cor:a5-nphard}
+\lean{MAG.Core.A5\_is\_NPHard}
+\leanok
+\uses{def:a5-instance, def:mag-nphard, thm:a5-not-solvable}
+
+Since $A_5$ is non-solvable, the $A_5$ instance is MAG-NP-hard.
+\end{corollary}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Solvability Preservation}
+
+\begin{lemma}[Isomorphism preserves solvability]
+\label{lem:solvable-of-equiv}
+\lean{MAG.Core.solvable\_of\_equiv}
+\leanok
+\paperref{Lemma 2.7}
+
+If $G \simeq H$ (group isomorphism) and $G$ is solvable, then $H$ is solvable.
+\[
+  G \simeq H \land \mathrm{IsSolvable}(G) \implies \mathrm{IsSolvable}(H)
+\]
+\end{lemma}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{MAG Separation Theorem}
+\label{chap:mag-separation}
+
+\paperref{Section 3}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Main Theorem}
+
+\begin{theorem}[MAG P$\neq$NP --- Theorem 3.1]
+\label{thm:mag-p-neq-np}
+\lean{MAG.Core.MAG\_P\_neq\_NP}
+\leanok
+\uses{def:mag-p-equals-np, cor:a5-nphard, lem:solvable-of-equiv}
+\paperref{Theorem 3.1}
+
+P $\neq$ NP in the MAG model:
+\[
+  \neg\, \mathrm{MAG\_P\_equals\_NP}
+\]
+
+\textbf{Proof sketch:}
+\begin{enumerate}
+  \item Assume MAG P = NP for contradiction.
+  \item Take $A_5$ as an NP-hard instance (non-solvable).
+  \item By assumption, there exists a polytime algorithm $a$ solving $A_5$.
+  \item $a$ is polytime $\Rightarrow$ $A(a)$ is solvable.
+  \item $a$ solves $A_5$ $\Rightarrow$ $A(a) \simeq A_5$.
+  \item By Lemma~\ref{lem:solvable-of-equiv}, $A_5$ would be solvable.
+  \item Contradiction with Theorem~\ref{thm:a5-not-solvable}.
+\end{enumerate}
+
+\textbf{Status:} sorry = 0, axiom = 0
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{$A_5$ Universal Barrier}
+\label{chap:a5-barrier}
+
+\paperref{Section 4}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Syntactic Systems and Deep Structures}
+
+\begin{definition}[SyntacticSystem]
+\label{def:syntactic-system}
+\lean{MAG.Core.SyntacticSystem}
+\leanok
+\paperref{Definition 4.1}
+
+A \emph{syntactic system} represents a formal derivation system with solvable group structure.
+\begin{verbatim}
+structure SyntacticSystem where
+  Derivations : Type*
+  [group : Group Derivations]
+  [fintype : Fintype Derivations]
+  is_solvable : IsSolvable Derivations
+\end{verbatim}
+\end{definition}
+
+\begin{definition}[DeepStructure]
+\label{def:deep-structure}
+\lean{MAG.Core.DeepStructure}
+\leanok
+\paperref{Definition 4.2}
+
+A \emph{deep structure} contains an $A_5$ embedding via injective homomorphism.
+\begin{verbatim}
+structure DeepStructure where
+  SymmetryGroup : Type*
+  [group : Group SymmetryGroup]
+  [fintype : Fintype SymmetryGroup]
+  embedding : alternatingGroup (Fin 5) →* SymmetryGroup
+  embedding_injective : Function.Injective embedding
+\end{verbatim}
+\end{definition}
+
+\begin{definition}[CanDescribe]
+\label{def:can-describe}
+\lean{MAG.Core.CanDescribe}
+\leanok
+\uses{def:syntactic-system, def:deep-structure}
+\paperref{Definition 4.3}
+
+A syntactic system \emph{can describe} a deep structure if there exists a group isomorphism.
+\begin{verbatim}
+def CanDescribe (sys : SyntacticSystem) (deep : DeepStructure) : Prop :=
+  Nonempty (sys.Derivations ≃* deep.SymmetryGroup)
+\end{verbatim}
+\end{definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Kernel Propagation}
+
+\begin{lemma}[Non-solvable kernel propagates]
+\label{lem:nonsolvable-propagates}
+\lean{MAG.Core.nonsolvable\_of\_injective\_from\_nonsolvable}
+\leanok
+\paperref{Lemma 4.4}
+
+If $H$ is non-solvable and $f : H \hookrightarrow G$ is injective, then $G$ is non-solvable.
+\[
+  \neg\mathrm{IsSolvable}(H) \land (H \hookrightarrow G) \implies \neg\mathrm{IsSolvable}(G)
+\]
+\end{lemma}
+
+\begin{corollary}[$A_5$ embedding implies non-solvability]
+\label{cor:a5-embedding-nonsolvable}
+\lean{MAG.Core.A5\_embedding\_implies\_nonsolvable}
+\leanok
+\uses{def:deep-structure, lem:nonsolvable-propagates, thm:a5-not-solvable}
+\paperref{Lemma 4.5}
+
+Any deep structure (with $A_5$ embedding) has a non-solvable symmetry group.
+\end{corollary}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Universal Barrier Theorem}
+
+\begin{theorem}[$A_5$ Universal Barrier --- Theorem 4.6]
+\label{thm:a5-universal-barrier}
+\lean{MAG.Core.A5\_Universal\_Barrier}
+\leanok
+\uses{def:syntactic-system, def:deep-structure, def:can-describe, cor:a5-embedding-nonsolvable}
+\paperref{Theorem 4.6}
+
+No solvable syntactic system can describe a deep structure containing an $A_5$ embedding:
+\[
+  \forall S\ D,\ \neg\, \mathrm{CanDescribe}(S, D)
+\]
+
+This theorem reflects the Krohn-Rhodes complexity hierarchy \cite{KrohnRhodes1965, RhodesSteinberg2009}:
+$A_5$ is the minimal Level~2 group, unreachable from Level~0--1 structures.
+
+\textbf{Status:} sorry = 0, axiom = 0
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Commutator Tree Vanishing Depth}
+\label{chap:barrington-barrier}
+
+\paperref{Section 4.7}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Commutator Trees}
+
+\begin{definition}[CommTerm]
+\label{def:comm-term}
+\lean{MAG.Core.BarringtonBarrier.CommTerm}
+\leanok
+
+A balanced commutator tree of depth $n$:
+\begin{itemize}
+  \item Depth 0: a variable
+  \item Depth $n+1$: commutator $[t, u]$ of two depth-$n$ terms
+\end{itemize}
+\begin{verbatim}
+inductive CommTerm (α : Type u) : ℕ → Type u
+  | var : α → CommTerm α 0
+  | comm {n : ℕ} : CommTerm α n → CommTerm α n → CommTerm α (n+1)
+\end{verbatim}
+\end{definition}
+
+\begin{theorem}[Evaluation lands in derived series]
+\label{thm:eval-mem-derived}
+\lean{MAG.Core.BarringtonBarrier.CommTerm.eval\_mem\_derivedSeries}
+\leanok
+\uses{def:comm-term}
+
+For any commutator term $t$ of depth $n$, $\mathrm{eval}(t) \in \mathrm{derivedSeries}(G, n)$.
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Vanishing Depth}
+
+\begin{theorem}[Solvable vanishing depth --- Theorem 4.7]
+\label{thm:solvable-vanishing-depth}
+\lean{MAG.Core.BarringtonBarrier.CommTerm.solvable\_vanishing\_depth}
+\leanok
+\uses{def:comm-term, thm:eval-mem-derived}
+\paperref{Theorem 4.7}
+
+For any solvable group $G$, there exists $k$ such that all commutator trees of depth $n \geq k$ evaluate to 1:
+\[
+  \exists k,\ \forall n \geq k,\ \forall t : \mathrm{CommTerm}_n,\ \mathrm{eval}(t) = 1
+\]
+
+\textbf{Status:} sorry = 0, axiom = 0
+\end{theorem}
+
+\begin{theorem}[$A_5$ has no vanishing depth]
+\label{thm:a5-no-vanishing}
+\lean{MAG.Core.BarringtonBarrier.A5\_no\_vanishing\_depth}
+\leanok
+
+$A_5$ has no finite vanishing depth (its derived series is constantly $\top$).
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Translation Interface and Bridge}
+\label{chap:bridge}
+
+\paperref{Section 5}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Abstract Computational Model}
+
+\begin{definition}[ComputationalModel]
+\label{def:computational-model}
+\lean{MAG.Core.Bridge.ComputationalModel}
+\leanok
+\paperref{Definition 5.1}
+
+An abstract interface for any computational model:
+\begin{verbatim}
+class ComputationalModel (M : Type*) where
+  Problem : Type*
+  Algorithm : Type*
+  problemSymmetry : Problem → Type*
+  algorithmOperations : Algorithm → Type*
+  solves : Algorithm → Problem → Prop
+  isPolyTime : Algorithm → Prop
+  isNPHard : Problem → Prop
+\end{verbatim}
+\end{definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Translation Interface}
+
+\begin{definition}[TranslationInterface]
+\label{def:translation-interface}
+\lean{MAG.Core.Bridge.TranslationInterface}
+\leanok
+\uses{def:computational-model}
+\paperref{Definition 5.2}
+
+The interface connecting a computational model to MAG semantics:
+\begin{enumerate}
+  \item \textbf{(A) polyTimeIsSolvable:} Polytime algorithms have solvable operation groups
+        (justified by Krohn-Rhodes \cite{KrohnRhodes1965})
+  \item \textbf{(B) npHardHasA5:} NP-hard problems have $A_5$ embedding in symmetry
+        (justified by Barrington \cite{Barrington1986} + syntactic theory)
+  \item \textbf{(C) solvesImpliesGroupCorrespondence:} Solving implies group isomorphism
+\end{enumerate}
+\end{definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Standard P=NP Definition}
+
+\begin{definition}[Standard\_P\_equals\_NP]
+\label{def:standard-p-equals-np}
+\lean{MAG.Core.Bridge.Standard\_P\_equals\_NP}
+\leanok
+\uses{def:computational-model}
+\paperref{Definition 5.3}
+
+P = NP on model $M$: every NP-hard problem can be solved by some polytime algorithm.
+\begin{verbatim}
+def Standard_P_equals_NP (M : Type*) [ComputationalModel M] : Prop :=
+  ∀ (p : Problem), isNPHard p →
+    ∃ a : Algorithm, isPolyTime a ∧ solves a p
+\end{verbatim}
+\end{definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Bridge Theorem}
+
+\begin{theorem}[Bridge P$\neq$NP --- Theorem 5.4]
+\label{thm:bridge-p-neq-np}
+\lean{MAG.Core.Bridge.Bridge\_P\_neq\_NP}
+\leanok
+\uses{def:computational-model, def:translation-interface, def:standard-p-equals-np}
+\paperref{Theorem 5.4}
+
+If TranslationInterface holds for model $M$ and an NP-hard problem exists, then P $\neq$ NP:
+\[
+  \mathrm{TranslationInterface}(M) \land (\exists p,\ \mathrm{isNPHard}(p)) \implies \neg\, \mathrm{Standard\_P\_equals\_NP}(M)
+\]
+
+\textbf{Status:} sorry = 0, axiom = 0
+\end{theorem}
+
+\begin{corollary}[Bridge P$\neq$NP (with existence)]
+\label{cor:bridge-p-neq-np-prime}
+\lean{MAG.Core.Bridge.Bridge\_P\_neq\_NP'}
+\leanok
+\uses{thm:bridge-p-neq-np}
+
+Variant that takes existence of NP-hard problem as explicit hypothesis.
+\end{corollary}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Toy Model Verification}
+\label{chap:toy}
+
+\paperref{Section 5.5}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{BarringtonToy Model}
+
+\begin{definition}[BarringtonToyModel]
+\label{def:barrington-toy-model}
+\lean{MAG.Core.Bridge.BarringtonToyModel}
+\leanok
+\paperref{Construction 5.5}
+
+A toy computational model where:
+\begin{itemize}
+  \item Problems ARE their symmetry groups
+  \item Algorithms ARE their operation groups
+  \item Conditions are satisfied BY DEFINITION
+\end{itemize}
+\end{definition}
+
+\begin{theorem}[Toy satisfies TranslationInterface]
+\label{thm:toy-translation-interface}
+\lean{MAG.Core.Bridge.instTranslationInterfaceBarringtonToyModel}
+\leanok
+\uses{def:barrington-toy-model, def:translation-interface}
+
+The BarringtonToy model satisfies all three TranslationInterface conditions.
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{NP-Hard Witness}
+
+\begin{definition}[$S_5$ Problem]
+\label{def:s5-problem}
+\lean{MAG.Core.Bridge.S5\_Problem}
+\leanok
+\uses{def:barrington-toy-model}
+\paperref{Lemma 5.6}
+
+A toy problem whose symmetry group is $S_5 = \mathrm{Perm}(\mathrm{Fin}\ 5)$.
+\end{definition}
+
+\begin{theorem}[$S_5$ is NP-hard in toy model]
+\label{thm:s5-nphard}
+\lean{MAG.Core.Bridge.S5\_is\_nphard}
+\leanok
+\uses{def:s5-problem}
+
+The $S_5$ problem is NP-hard in the toy sense (contains $A_5$ via subgroup inclusion).
+\end{theorem}
+
+\begin{theorem}[NP-hard problems exist in toy model]
+\label{thm:toy-exists-nphard}
+\lean{MAG.Core.Bridge.toy\_exists\_nphard}
+\leanok
+\uses{thm:s5-nphard}
+
+There exists an NP-hard problem in the BarringtonToy model.
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{End-to-End Result}
+
+\begin{theorem}[BarringtonToy P$\neq$NP --- Theorem 5.7]
+\label{thm:barrington-toy-p-neq-np}
+\lean{MAG.Core.Bridge.BarringtonToy\_P\_neq\_NP}
+\leanok
+\uses{thm:toy-translation-interface, thm:toy-exists-nphard, cor:bridge-p-neq-np-prime}
+
+P $\neq$ NP holds in the BarringtonToy model:
+\[
+  \neg\, \mathrm{Standard\_P\_equals\_NP}(\mathrm{BarringtonToyModel})
+\]
+This theorem demonstrates the bridge plumbing works end-to-end without sorry.
+
+\textbf{Status:} sorry = 0, axiom = 0
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Barrington's Theorem Components}
+\label{chap:barrington}
+
+\paperref{Appendix A}
+
+This chapter formalizes the core algebraic content of Barrington's theorem \cite{Barrington1986}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Non-Commuting Elements}
+
+\begin{definition}[commutator]
+\label{def:commutator}
+\lean{MAG.Support.Barrington.Complete.commutator}
+\leanok
+
+Group commutator: $[a, b] = a^{-1}b^{-1}ab$.
+\end{definition}
+
+\begin{theorem}[$\sigma$ and $\tau$ do not commute]
+\label{thm:sigma-tau-not-commute}
+\lean{MAG.Support.Barrington.Complete.σ\_τ\_not\_commute}
+\leanok
+\uses{def:commutator}
+
+$[\sigma, \tau] \neq 1$, proven via \texttt{decide}.
+\end{theorem}
+
+\begin{theorem}[AND via commutator]
+\label{thm:commutator-and-table}
+\lean{MAG.Support.Barrington.Complete.commutator\_and\_table}
+\leanok
+\uses{thm:sigma-tau-not-commute}
+
+The commutator encodes AND truth table:
+\[
+  [\sigma, \tau] \neq 1,\quad [\sigma, 1] = 1,\quad [1, \tau] = 1,\quad [1, 1] = 1
+\]
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Branching Programs and Length Analysis}
+
+\begin{definition}[BranchingProgram]
+\label{def:branching-program}
+\lean{MAG.Support.Barrington.Complete.BranchingProgram}
+\leanok
+
+A branching program as a list of instructions.
+\end{definition}
+
+\begin{theorem}[Commutator program length]
+\label{thm:length-commutator-prog}
+\lean{MAG.Support.Barrington.Complete.length\_commutatorProg}
+\leanok
+\uses{def:branching-program}
+
+$|[P_1, P_2]| = 2|P_1| + 2|P_2|$.
+\end{theorem}
+
+\begin{theorem}[Translation length bound]
+\label{thm:translate-length-bound}
+\lean{MAG.Support.Barrington.Complete.translate\_length\_bound}
+\leanok
+
+$|\mathrm{translate}(C)| \leq 4^{\mathrm{depth}(C)}$.
+\end{theorem}
+
+\begin{theorem}[NC$^1$ has poly BP]
+\label{thm:nc1-poly-bp}
+\lean{MAG.Support.Barrington.Arithmetic.NC1\_has\_poly\_BP}
+\leanok
+
+NC$^1$ functions have polynomial-size width-5 branching programs.
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Krohn-Rhodes Circuit Solvability}
+\label{chap:krohn-rhodes}
+
+\paperref{Appendix A}
+
+This chapter proves that standard Boolean circuits have solvable operation groups,
+based on the Krohn-Rhodes decomposition theorem \cite{KrohnRhodes1965, RhodesSteinberg2009}.
+
+\begin{definition}[GateType]
+\label{def:gate-type}
+\lean{MAG.Support.Circuits.KrohnRhodes.GateType}
+\leanok
+
+Standard Boolean gate types: AND, OR, NOT, INPUT.
+\end{definition}
+
+\begin{definition}[GateGroup]
+\label{def:gate-group}
+\lean{MAG.Support.Circuits.KrohnRhodes.GateGroup}
+\leanok
+\uses{def:gate-type}
+
+The group component of each gate's syntactic monoid.
+\end{definition}
+
+\begin{theorem}[Gate groups are solvable]
+\label{thm:gate-solvable}
+\lean{MAG.Support.Circuits.KrohnRhodes.gate\_group\_solvable}
+\leanok
+\uses{def:gate-group}
+
+Every basic gate has a solvable group.
+\end{theorem}
+
+\begin{theorem}[Circuit Composition Principle]
+\label{thm:circuit-composition-principle}
+\lean{MAG.Support.Circuits.KrohnRhodes.Circuit\_Composition\_Principle}
+\leanok
+\uses{thm:gate-solvable}
+
+Standard Boolean circuits have solvable operation groups:
+\[
+  \forall C,\ \mathrm{IsSolvable}(\mathrm{CircuitOpGroup}(C))
+\]
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Syntactic Theory}
+\label{chap:syntactic}
+
+\paperref{Appendix A}
+
+This chapter proves the fundamental theorem of syntactic monoids.
+
+\begin{definition}[SyntacticMonoid]
+\label{def:syntactic-monoid}
+\lean{MAG.Support.Syntactic.Theory.SyntacticMonoid}
+\leanok
+
+The quotient $\Sigma^* / {\sim_L}$.
+\end{definition}
+
+\begin{definition}[WordProblem]
+\label{def:word-problem}
+\lean{MAG.Support.Syntactic.Theory.WordProblem}
+\leanok
+
+The word problem of a group $G$: $w \in L \Leftrightarrow w.\mathrm{prod} = 1$.
+\end{definition}
+
+\begin{theorem}[Word problem syntactic monoid isomorphism]
+\label{thm:word-problem-iso}
+\lean{MAG.Support.Syntactic.Theory.wordProblem\_syntacticMonoid\_iso\_self}
+\leanok
+\uses{def:syntactic-monoid, def:word-problem}
+
+The syntactic monoid of the word problem of $G$ is isomorphic to $G$:
+\[
+  \mathrm{SyntacticMonoid}(\mathrm{WordProblem}_G) \simeq G
+\]
+\end{theorem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter*{Appendix: Lean Artifact Map}
+\addcontentsline{toc}{chapter}{Appendix: Lean Artifact Map}
+
+\section*{Core Theorems}
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Theorem/Definition} & \textbf{File} & \textbf{Status} \\
+\hline
+MAG\_P\_neq\_NP (Thm 3.1) & Core/MAG\_P\_neq\_NP.lean & $\checkmark$ sorry-free \\
+A5\_Universal\_Barrier (Thm 4.6) & Core/A5\_Barrier.lean & $\checkmark$ sorry-free \\
+solvable\_vanishing\_depth (Thm 4.7) & Core/BarringtonBarrier.lean & $\checkmark$ sorry-free \\
+Bridge\_P\_neq\_NP (Thm 5.4) & Core/Bridge/Theorem.lean & $\checkmark$ sorry-free \\
+BarringtonToy\_P\_neq\_NP (Thm 5.7) & Core/Bridge/ToyInstantiation.lean & $\checkmark$ sorry-free \\
+\hline
+\end{tabular}
+\end{center}
+
+\section*{Support Modules}
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Module} & \textbf{File} & \textbf{Status} \\
+\hline
+Barrington algebraic content & Support/Barrington/Complete.lean & $\checkmark$ sorry-free \\
+Barrington arithmetic & Support/Barrington/Arithmetic.lean & $\checkmark$ sorry-free \\
+Krohn-Rhodes solvability & Support/Circuits/KrohnRhodes.lean & $\checkmark$ sorry-free \\
+Syntactic monoid theory & Support/Syntactic/Theory.lean & $\checkmark$ sorry-free \\
+\hline
+\end{tabular}
+\end{center}
+
+\section*{Verification Command}
+
+Entry point: \texttt{Main.lean}
+
+To verify: \texttt{lake build}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Bibliography
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\bibliographystyle{alpha}
+\bibliography{references}
