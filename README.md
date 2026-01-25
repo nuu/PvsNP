@@ -20,7 +20,7 @@ The core insight: **solvable groups cannot be isomorphic to non-solvable groups*
 |---------|-------------|--------|
 | **Theorem 3.1** | MAG internal P ≠ NP | ✅ sorry-free |
 | **Theorem 4.6** | A₅ Universal Barrier | ✅ sorry-free |
-| **Theorem 4.6.1** | Solvable vanishing depth | ✅ sorry-free |
+| **Theorem 4.7** | Solvable vanishing depth | ✅ sorry-free |
 | **Theorem 5.4** | Bridge theorem (conditional) | ✅ sorry-free |
 | **Theorem 5.7** | Toy model verification | ✅ sorry-free |
 
